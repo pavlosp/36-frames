@@ -83,6 +83,16 @@ export default function UploadZone({
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       try {
+        // Check if adding these files would exceed the limit
+        if (files.length + acceptedFiles.length > maxFiles) {
+          toast({
+            title: "Too many files",
+            description: `Maximum ${maxFiles} photos allowed. Please remove some photos first.`,
+            variant: "destructive"
+          });
+          return;
+        }
+
         // Check file sizes before processing
         const oversizedFiles = acceptedFiles.filter(
           file => file.size > 1024 * 1024
@@ -115,10 +125,10 @@ export default function UploadZone({
           })
         );
 
-        const newFiles = [...files, ...compressedFiles].slice(0, maxFiles);
+        const newFiles = [...files, ...compressedFiles];
         onFilesChange(newFiles);
       } catch (error: any) {
-        console.error("Error compressing images:", error);
+        console.error("Error processing images:", error);
         toast({
           title: "Error processing images",
           description: error.message,
@@ -139,7 +149,7 @@ export default function UploadZone({
       "image/*": [".jpeg", ".jpg", ".png", ".webp"],
     },
     maxFiles: maxFiles - files.length,
-    disabled: isProcessing,
+    disabled: isProcessing || files.length >= maxFiles,
   });
 
   const handleRemoveFile = (e: React.MouseEvent, index: number) => {
@@ -156,7 +166,7 @@ export default function UploadZone({
         {...getRootProps()}
         className={`p-8 border-dashed cursor-pointer text-center ${
           isDragActive ? "border-primary" : ""
-        } ${isProcessing ? "opacity-50" : ""}`}
+        } ${isProcessing || files.length >= maxFiles ? "opacity-50" : ""}`}
       >
         <input {...getInputProps()} />
         {isProcessing ? (
@@ -172,6 +182,8 @@ export default function UploadZone({
             <p className="text-muted-foreground">
               {isDragActive
                 ? "Drop the photos here..."
+                : files.length >= maxFiles
+                ? `Maximum ${maxFiles} photos reached`
                 : "Drag & drop photos here, or click to select"}
             </p>
             <p className="text-sm text-muted-foreground mt-2">
