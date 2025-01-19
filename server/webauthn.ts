@@ -9,8 +9,10 @@ import type {
   GenerateRegistrationOptionsOpts,
   VerifyAuthenticationResponseOpts,
   VerifyRegistrationResponseOpts,
+  AuthenticationResponseJSON,
+  RegistrationResponseJSON,
+  AuthenticatorTransport
 } from "@simplewebauthn/server";
-import { isoBase64URL } from "@simplewebauthn/server/helpers";
 
 // This should be the URL of your app
 const rpID = process.env.RP_ID || "localhost";
@@ -24,9 +26,9 @@ const origin = process.env.NODE_ENV === "production"
  */
 export async function generateRegistration(
   user: { id: number; username: string; email: string },
-  existingCredentials: Array<{ credentialID: string; transports?: string[] }> = []
+  existingCredentials: Array<{ credentialID: string; transports?: AuthenticatorTransport[] }> = []
 ): Promise<GenerateRegistrationOptionsOpts> {
-  const opts: GenerateRegistrationOptionsOpts = {
+  return {
     rpName,
     rpID,
     userID: user.id.toString(),
@@ -38,44 +40,41 @@ export async function generateRegistration(
       userVerification: 'preferred',
     },
     excludeCredentials: existingCredentials.map(cred => ({
-      id: isoBase64URL.toBuffer(cred.credentialID),
+      id: Buffer.from(cred.credentialID, 'base64url'),
       type: 'public-key',
-      transports: cred.transports as AuthenticatorTransport[],
+      transports: cred.transports,
     })),
   };
-
-  return opts;
 }
 
 /**
  * Generate options for authenticating with an existing authenticator
  */
 export async function generateAuthentication(
-  existingCredentials: Array<{ credentialID: string; transports?: string[] }> = []
+  existingCredentials: Array<{ credentialID: string; transports?: AuthenticatorTransport[] }> = []
 ): Promise<GenerateAuthenticationOptionsOpts> {
-  const opts: GenerateAuthenticationOptionsOpts = {
+  return {
     rpID,
     allowCredentials: existingCredentials.map(cred => ({
-      id: isoBase64URL.toBuffer(cred.credentialID),
+      id: Buffer.from(cred.credentialID, 'base64url'),
       type: 'public-key',
-      transports: cred.transports as AuthenticatorTransport[],
+      transports: cred.transports,
     })),
     userVerification: 'preferred',
   };
-
-  return opts;
 }
 
 /**
  * Verify the registration response from the client
  */
 export async function verifyRegistration(
-  opts: VerifyRegistrationResponseOpts
+  opts: Pick<VerifyRegistrationResponseOpts, 'response' | 'expectedChallenge'>
 ): Promise<boolean> {
   const verification = await verifyRegistrationResponse({
     ...opts,
     expectedRPID: rpID,
     expectedOrigin: origin,
+    requireUserVerification: true,
   });
 
   return verification.verified;
@@ -85,12 +84,21 @@ export async function verifyRegistration(
  * Verify the authentication response from the client
  */
 export async function verifyAuthentication(
-  opts: VerifyAuthenticationResponseOpts
+  opts: Pick<VerifyAuthenticationResponseOpts, 'response' | 'expectedChallenge'> & {
+    authenticator: {
+      credentialID: Buffer;
+      credentialPublicKey: Buffer;
+      counter: number;
+    };
+  }
 ): Promise<boolean> {
   const verification = await verifyAuthenticationResponse({
-    ...opts,
+    response: opts.response as AuthenticationResponseJSON,
+    expectedChallenge: opts.expectedChallenge,
     expectedRPID: rpID,
     expectedOrigin: origin,
+    authenticator: opts.authenticator,
+    requireUserVerification: true,
   });
 
   return verification.verified;

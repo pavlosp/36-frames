@@ -26,7 +26,7 @@ export const authenticators = pgTable("authenticators", {
 
 export const albums = pgTable("albums", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id), 
+  userId: integer("user_id").references(() => users.id).notNull(),
   title: text("title").notNull(),
   description: text("description"),
   slug: text("slug").unique().notNull(),

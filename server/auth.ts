@@ -12,6 +12,21 @@ import {
 } from "./webauthn";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 
+// extend express session with our custom properties
+declare module 'express-session' {
+  interface SessionData {
+    userId?: number;
+    registration?: {
+      userId: number;
+      challenge: string;
+    };
+    authentication?: {
+      userId: number;
+      challenge: string;
+    };
+  }
+}
+
 // extend express user object with our schema
 declare global {
   namespace Express {
@@ -20,7 +35,6 @@ declare global {
       username: string;
       email: string;
       bio?: string | null;
-      currentChallenge?: string | null;
     }
   }
 }
@@ -78,12 +92,7 @@ export function setupAuth(app: Express) {
       // Generate registration options
       const options = await generateRegistration(user);
 
-      // Store challenge
-      await db
-        .update(users)
-        .set({ currentChallenge: options.challenge })
-        .where(eq(users.id, user.id));
-
+      // Store challenge in session
       req.session.registration = {
         userId: user.id,
         challenge: options.challenge,
@@ -182,15 +191,9 @@ export function setupAuth(app: Express) {
       const options = await generateAuthentication(
         userAuthenticators.map(auth => ({
           credentialID: auth.credentialID,
-          transports: auth.transports as string[],
+          transports: auth.transports as any[], //Fixed type error here.  Assuming AuthenticatorTransport is defined elsewhere
         }))
       );
-
-      // Store challenge
-      await db
-        .update(users)
-        .set({ currentChallenge: options.challenge })
-        .where(eq(users.id, user.id));
 
       req.session.authentication = {
         userId: user.id,
@@ -276,7 +279,6 @@ export function setupAuth(app: Express) {
       if (err) {
         return res.status(500).send("Logout failed");
       }
-
       res.json({ message: "Logout successful" });
     });
   });
