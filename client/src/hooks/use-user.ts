@@ -1,4 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  startAuthentication,
+  startRegistration,
+} from '@simplewebauthn/browser';
 import type { InsertUser, SelectUser } from "@db/schema";
 
 type RequestResult = {
@@ -11,7 +15,7 @@ type RequestResult = {
 async function handleRequest(
   url: string,
   method: string,
-  body?: InsertUser
+  body?: any
 ): Promise<RequestResult> {
   try {
     const response = await fetch(url, {
@@ -66,22 +70,84 @@ export function useUser() {
     retry: false
   });
 
-  const loginMutation = useMutation<RequestResult, Error, InsertUser>({
-    mutationFn: (userData) => handleRequest('/api/login', 'POST', userData),
+  const loginMutation = useMutation({
+    mutationFn: async (email: string) => {
+      // Get authentication options
+      const optionsRes = await fetch('/api/auth/login-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+        credentials: 'include',
+      });
+
+      if (!optionsRes.ok) {
+        throw new Error(await optionsRes.text());
+      }
+
+      const options = await optionsRes.json();
+
+      // Start the authentication process
+      const credential = await startAuthentication(options);
+
+      // Verify the authentication
+      const verifyRes = await fetch('/api/auth/login-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credential),
+        credentials: 'include',
+      });
+
+      if (!verifyRes.ok) {
+        throw new Error(await verifyRes.text());
+      }
+
+      return verifyRes.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
   });
 
-  const logoutMutation = useMutation<RequestResult, Error>({
+  const logoutMutation = useMutation({
     mutationFn: () => handleRequest('/api/logout', 'POST'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
   });
 
-  const registerMutation = useMutation<RequestResult, Error, InsertUser>({
-    mutationFn: (userData) => handleRequest('/api/register', 'POST', userData),
+  const registerMutation = useMutation({
+    mutationFn: async (userData: Pick<InsertUser, 'username' | 'email'>) => {
+      // Get registration options
+      const optionsRes = await fetch('/api/auth/register-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+        credentials: 'include',
+      });
+
+      if (!optionsRes.ok) {
+        throw new Error(await optionsRes.text());
+      }
+
+      const options = await optionsRes.json();
+
+      // Start the registration process
+      const credential = await startRegistration(options);
+
+      // Verify the registration
+      const verifyRes = await fetch('/api/auth/register-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credential),
+        credentials: 'include',
+      });
+
+      if (!verifyRes.ok) {
+        throw new Error(await verifyRes.text());
+      }
+
+      return verifyRes.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },

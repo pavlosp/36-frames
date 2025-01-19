@@ -16,44 +16,43 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 import { insertUserSchema } from "@db/schema";
+import { Fingerprint } from "lucide-react";
 import type { InsertUser } from "@db/schema";
+
+type AuthFormData = Pick<InsertUser, "username" | "email" | "bio">;
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const { toast } = useToast();
   const { login, register } = useUser();
 
-  const form = useForm<InsertUser>({
-    resolver: zodResolver(insertUserSchema),
+  const form = useForm<AuthFormData>({
+    resolver: zodResolver(
+      insertUserSchema.omit({ password: true })
+    ),
     defaultValues: {
       username: "",
       email: "",
-      password: "",
       bio: "",
     },
   });
 
-  const onSubmit = async (data: InsertUser) => {
+  const onSubmit = async (data: AuthFormData) => {
     try {
-      const result = isLogin
-        ? await login(data)
-        : await register(data);
-
-      if (!result.ok) {
+      if (isLogin) {
+        await login(data.email);
         toast({
-          title: "Error",
-          description: result.message,
-          variant: "destructive",
+          title: "Welcome back!",
+          description: "Successfully logged in",
         });
-        return;
+      } else {
+        const { username, email, bio } = data;
+        await register({ username, email, bio });
+        toast({
+          title: "Welcome to 36 Frames!",
+          description: "Your account has been created",
+        });
       }
-
-      toast({
-        title: isLogin ? "Welcome back!" : "Welcome to 36 Frames!",
-        description: isLogin
-          ? "Successfully logged in"
-          : "Your account has been created",
-      });
     } catch (error: any) {
       toast({
         title: "Error",
@@ -66,9 +65,12 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <Card className="w-full max-w-md p-6">
-        <h1 className="text-2xl font-bold mb-6">
-          {isLogin ? "Welcome Back" : "Create Account"}
-        </h1>
+        <div className="flex items-center justify-center mb-6">
+          <Fingerprint className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl font-bold ml-2">
+            {isLogin ? "Welcome Back" : "Create Account"}
+          </h1>
+        </div>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -114,49 +116,37 @@ export default function AuthPage() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="bio"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bio (optional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Tell us about yourself..."
+                          {...field}
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </>
             )}
 
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="Enter your password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {!isLogin && (
-              <FormField
-                control={form.control}
-                name="bio"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Bio (optional)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Tell us about yourself..."
-                        {...field}
-                        value={field.value || ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
-            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+            <Button
+              type="submit"
+              className="w-full gap-2"
+              disabled={form.formState.isSubmitting}
+            >
+              <Fingerprint className="h-4 w-4" />
               {form.formState.isSubmitting
                 ? "Loading..."
                 : isLogin
-                ? "Log In"
-                : "Create Account"}
+                ? "Continue with Passkey"
+                : "Create Account with Passkey"}
             </Button>
           </form>
         </Form>

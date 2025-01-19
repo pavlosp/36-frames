@@ -1,37 +1,27 @@
-import passport from "passport";
-import { IVerifyOptions, Strategy as LocalStrategy } from "passport-local";
-import { type Express } from "express";
+import type { Express } from "express";
 import session from "express-session";
 import createMemoryStore from "memorystore";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
-import { users, insertUserSchema, type User as SelectUser } from "@db/schema";
+import { users, authenticators } from "@db/schema";
 import { db } from "@db";
-import { eq, or } from "drizzle-orm";
-
-const scryptAsync = promisify(scrypt);
-const crypto = {
-  hash: async (password: string) => {
-    const salt = randomBytes(16).toString("hex");
-    const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-    return `${buf.toString("hex")}.${salt}`;
-  },
-  compare: async (suppliedPassword: string, storedPassword: string) => {
-    const [hashedPassword, salt] = storedPassword.split(".");
-    const hashedPasswordBuf = Buffer.from(hashedPassword, "hex");
-    const suppliedPasswordBuf = (await scryptAsync(
-      suppliedPassword,
-      salt,
-      64
-    )) as Buffer;
-    return timingSafeEqual(hashedPasswordBuf, suppliedPasswordBuf);
-  },
-};
+import { eq } from "drizzle-orm";
+import {
+  generateRegistration,
+  generateAuthentication,
+  verifyRegistration,
+  verifyAuthentication,
+} from "./webauthn";
+import { isoBase64URL } from "@simplewebauthn/server/helpers";
 
 // extend express user object with our schema
 declare global {
   namespace Express {
-    interface User extends SelectUser { }
+    interface User {
+      id: number;
+      username: string;
+      email: string;
+      bio?: string | null;
+      currentChallenge?: string | null;
+    }
   }
 }
 
@@ -40,7 +30,7 @@ export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || "secret-key-dev",
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: true,
     cookie: {},
     store: new MemoryStore({
       checkPeriod: 86400000, // prune expired entries every 24h
@@ -55,142 +45,234 @@ export function setupAuth(app: Express) {
   }
 
   app.use(session(sessionSettings));
-  app.use(passport.initialize());
-  app.use(passport.session());
 
-  passport.use(
-    new LocalStrategy(
-      {
-        usernameField: 'email', // Use email field for login
-      },
-      async (email, password, done) => {
-        try {
-          // Find user by email
-          const [user] = await db
-            .select()
-            .from(users)
-            .where(eq(users.email, email))
-            .limit(1);
+  // Generate registration options
+  app.post("/api/auth/register-options", async (req, res) => {
+    const { username, email } = req.body;
 
-          if (!user) {
-            return done(null, false, { message: "Incorrect email." });
-          }
-          const isMatch = await crypto.compare(password, user.password);
-          if (!isMatch) {
-            return done(null, false, { message: "Incorrect password." });
-          }
-          return done(null, user);
-        } catch (err) {
-          return done(err);
-        }
-      }
-    )
-  );
-
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
-
-  passport.deserializeUser(async (id: number, done) => {
-    try {
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, id))
-        .limit(1);
-      done(null, user);
-    } catch (err) {
-      done(err);
+    if (!username || !email) {
+      return res.status(400).send("Username and email are required");
     }
-  });
 
-  app.post("/api/register", async (req, res, next) => {
     try {
-      const result = insertUserSchema.safeParse(req.body);
-      if (!result.success) {
-        return res
-          .status(400)
-          .send("Invalid input: " + result.error.issues.map(i => i.message).join(", "));
-      }
-
-      const { username, email, password, bio } = result.data;
-
-      // Check if user already exists (either username or email)
+      // Check if user exists
       const [existingUser] = await db
         .select()
         .from(users)
-        .where(or(eq(users.username, username), eq(users.email, email)))
+        .where(eq(users.username, username))
         .limit(1);
 
       if (existingUser) {
-        if (existingUser.username === username) {
-          return res.status(400).send("Username already exists");
-        }
-        return res.status(400).send("Email already exists");
+        return res.status(400).send("Username already exists");
       }
 
-      // Hash the password
-      const hashedPassword = await crypto.hash(password);
-
-      // Create the new user
-      const [newUser] = await db
+      // Create new user
+      const [user] = await db
         .insert(users)
         .values({
           username,
           email,
-          password: hashedPassword,
-          bio,
         })
         .returning();
 
-      // Log the user in after registration
-      req.login(newUser, (err) => {
-        if (err) {
-          return next(err);
-        }
-        return res.json({
-          message: "Registration successful",
-          user: { id: newUser.id, username: newUser.username, email: newUser.email, bio: newUser.bio },
-        });
-      });
+      // Generate registration options
+      const options = await generateRegistration(user);
+
+      // Store challenge
+      await db
+        .update(users)
+        .set({ currentChallenge: options.challenge })
+        .where(eq(users.id, user.id));
+
+      req.session.registration = {
+        userId: user.id,
+        challenge: options.challenge,
+      };
+
+      res.json(options);
     } catch (error) {
-      next(error);
+      console.error(error);
+      res.status(500).send("Error generating registration options");
     }
   });
 
-  app.post("/api/login", (req, res, next) => {
-    const result = insertUserSchema.safeParse(req.body);
-    if (!result.success) {
-      return res
-        .status(400)
-        .send("Invalid input: " + result.error.issues.map(i => i.message).join(", "));
+  // Verify registration response
+  app.post("/api/auth/register-verify", async (req, res) => {
+    const registration = req.session.registration;
+    if (!registration) {
+      return res.status(400).send("No registration in progress");
     }
 
-    const cb = (err: any, user: Express.User, info: IVerifyOptions) => {
-      if (err) {
-        return next(err);
+    try {
+      const { userId, challenge } = registration;
+
+      const verification = await verifyRegistration({
+        response: req.body,
+        expectedChallenge: challenge,
+      });
+
+      if (!verification) {
+        return res.status(400).send("Invalid registration response");
       }
+
+      const { credentialID, credentialPublicKey, counter } = req.body;
+
+      // Save the new authenticator
+      await db.insert(authenticators).values({
+        userId,
+        credentialID: isoBase64URL.fromBuffer(credentialID),
+        credentialPublicKey: isoBase64URL.fromBuffer(credentialPublicKey),
+        counter,
+        credentialDeviceType: req.body.credentialDeviceType,
+        credentialBackedUp: req.body.credentialBackedUp,
+        transports: req.body.transports,
+      });
+
+      // Get the user
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      // Log the user in
+      req.session.userId = user.id;
+      delete req.session.registration;
+
+      res.json({
+        message: "Registration successful",
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          bio: user.bio,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Error verifying registration");
+    }
+  });
+
+  // Generate authentication options
+  app.post("/api/auth/login-options", async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).send("Email is required");
+    }
+
+    try {
+      // Get user and their authenticators
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
 
       if (!user) {
-        return res.status(400).send(info.message ?? "Login failed");
+        return res.status(400).send("User not found");
       }
 
-      req.logIn(user, (err) => {
-        if (err) {
-          return next(err);
-        }
+      const userAuthenticators = await db
+        .select()
+        .from(authenticators)
+        .where(eq(authenticators.userId, user.id));
 
-        return res.json({
-          message: "Login successful",
-          user: { id: user.id, username: user.username, email: user.email, bio: user.bio },
-        });
+      const options = await generateAuthentication(
+        userAuthenticators.map(auth => ({
+          credentialID: auth.credentialID,
+          transports: auth.transports as string[],
+        }))
+      );
+
+      // Store challenge
+      await db
+        .update(users)
+        .set({ currentChallenge: options.challenge })
+        .where(eq(users.id, user.id));
+
+      req.session.authentication = {
+        userId: user.id,
+        challenge: options.challenge,
+      };
+
+      res.json(options);
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Error generating authentication options");
+    }
+  });
+
+  // Verify authentication response
+  app.post("/api/auth/login-verify", async (req, res) => {
+    const authentication = req.session.authentication;
+    if (!authentication) {
+      return res.status(400).send("No authentication in progress");
+    }
+
+    try {
+      const { userId, challenge } = authentication;
+
+      // Get user's authenticator
+      const [authenticator] = await db
+        .select()
+        .from(authenticators)
+        .where(eq(authenticators.credentialID, req.body.id))
+        .limit(1);
+
+      if (!authenticator) {
+        return res.status(400).send("Authenticator not found");
+      }
+
+      const verification = await verifyAuthentication({
+        response: req.body,
+        expectedChallenge: challenge,
+        authenticator: {
+          credentialID: isoBase64URL.toBuffer(authenticator.credentialID),
+          credentialPublicKey: isoBase64URL.toBuffer(authenticator.credentialPublicKey),
+          counter: authenticator.counter,
+        },
       });
-    };
-    passport.authenticate("local", cb)(req, res, next);
+
+      if (!verification) {
+        return res.status(400).send("Invalid authentication response");
+      }
+
+      // Update counter
+      await db
+        .update(authenticators)
+        .set({ counter: req.body.newCounter })
+        .where(eq(authenticators.id, authenticator.id));
+
+      // Get the user
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      // Log the user in
+      req.session.userId = user.id;
+      delete req.session.authentication;
+
+      res.json({
+        message: "Authentication successful",
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          bio: user.bio,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Error verifying authentication");
+    }
   });
 
   app.post("/api/logout", (req, res) => {
-    req.logout((err) => {
+    req.session.destroy((err) => {
       if (err) {
         return res.status(500).send("Logout failed");
       }
@@ -199,11 +281,32 @@ export function setupAuth(app: Express) {
     });
   });
 
-  app.get("/api/user", (req, res) => {
-    if (req.isAuthenticated()) {
-      return res.json(req.user);
+  app.get("/api/user", async (req, res) => {
+    const userId = req.session.userId;
+    if (!userId) {
+      return res.status(401).send("Not logged in");
     }
 
-    res.status(401).send("Not logged in");
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!user) {
+        return res.status(401).send("User not found");
+      }
+
+      res.json({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        bio: user.bio,
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Error getting user");
+    }
   });
 }
