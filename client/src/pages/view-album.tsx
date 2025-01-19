@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Album, Photo } from "@db/schema";
+import { useEffect } from "react";
 
 export default function ViewAlbum() {
   const [, params] = useRoute("/album/:slug");
@@ -14,11 +15,20 @@ export default function ViewAlbum() {
     queryKey: [`/api/albums/${params?.slug}`],
   });
 
+  useEffect(() => {
+    if (data?.album) {
+      document.title = `36 Frames - ${data.album.title}`;
+    }
+    return () => {
+      document.title = "36 Frames"; // Reset title when unmounting
+    };
+  }, [data?.album]);
+
   const handleShare = async () => {
     try {
       await navigator.share({
-        title: data?.album.title,
-        text: data?.album.description,
+        title: data?.album?.title,
+        text: data?.album?.description,
         url: window.location.href,
       });
     } catch {
