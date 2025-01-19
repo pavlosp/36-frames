@@ -211,7 +211,7 @@ export default function UploadZone({
                 : "Drag & drop photos here, or click to select"}
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              {files.length}/{maxFiles} photos (max 1MB each)
+              {files.length}/{maxFiles} photos
             </p>
           </>
         )}
