@@ -21,14 +21,15 @@ export default function CreateAlbum() {
 
   const createAlbum = useMutation({
     mutationFn: async (data: InsertAlbum & { photos: File[] }) => {
-      if (!user) {
+      if (!user?.id) {
+        console.error('No user ID available:', user);
         throw new Error("You must be logged in to create an album");
       }
 
       const formData = new FormData();
       formData.append("title", data.title);
       formData.append("description", data.description || "");
-      formData.append("userId", user.id.toString()); // Send user ID directly
+      formData.append("userId", user.id); // Use the string ID directly
       data.photos.forEach((photo) => {
         formData.append("photos", photo);
       });
@@ -41,12 +42,15 @@ export default function CreateAlbum() {
       });
 
       if (!res.ok) {
-        throw new Error(await res.text());
+        const error = await res.text();
+        console.error('Album creation failed:', error);
+        throw new Error(error);
       }
 
       return res.json();
     },
     onSuccess: (data) => {
+      console.log('Album created successfully:', data);
       toast({
         title: "Album created!",
         description: "Your album has been created successfully.",
@@ -54,6 +58,7 @@ export default function CreateAlbum() {
       setLocation(`/album/${data.slug}`);
     },
     onError: (error: any) => {
+      console.error('Album creation error:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -64,7 +69,8 @@ export default function CreateAlbum() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
+    if (!user?.id) {
+      console.error('No user ID available during submit:', user);
       toast({
         title: "Error",
         description: "You must be logged in to create an album",
@@ -97,11 +103,13 @@ export default function CreateAlbum() {
       return;
     }
 
+    console.log('Submitting album creation with user:', user.id); // Debug log
+
     createAlbum.mutate({ 
       title, 
       description, 
       photos: files,
-      userId: user.id, // Include user ID in mutation
+      userId: user.id,
     } as any);
   };
 

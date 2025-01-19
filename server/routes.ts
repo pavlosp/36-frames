@@ -27,8 +27,10 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/users/sync", async (req, res) => {
     try {
       const { id, email, username } = req.body;
+      console.log("Syncing user:", { id, email, username }); // Debug log
 
       if (!id || !email || !username) {
+        console.log("Missing user data:", { id, email, username }); // Debug log
         return res.status(400).send("Missing required user data");
       }
 
@@ -40,6 +42,7 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (existingUser) {
+        console.log("Found existing user:", existingUser); // Debug log
         return res.json(existingUser);
       }
 
@@ -54,6 +57,7 @@ export function registerRoutes(app: Express): Server {
         })
         .returning();
 
+      console.log("Created new user:", user); // Debug log
       res.json(user);
     } catch (error: any) {
       console.error("Error syncing user:", error);
@@ -133,15 +137,28 @@ export function registerRoutes(app: Express): Server {
       }
 
       const { title, description, userId } = req.body;
+      console.log("Creating album with data:", { title, description, userId }); // Debug log
+
       if (!title) {
         return res.status(400).send("Title is required");
       }
 
-      console.log("Received userId:", userId); // Debug log
-
       // Validate user ID
       if (!userId) {
+        console.log("Missing userId in request body:", req.body); // Debug log
         return res.status(401).send("User not authenticated");
+      }
+
+      // Verify user exists before creating album
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!user) {
+        console.log("User not found in database:", userId); // Debug log
+        return res.status(404).send("User not found");
       }
 
       // Create album
@@ -151,7 +168,7 @@ export function registerRoutes(app: Express): Server {
           title,
           description,
           slug: `${nanoid(10)}`,
-          userId: userId, // No need to parse as integer anymore
+          userId: userId,
         })
         .returning();
 

@@ -4,6 +4,13 @@ import type { SelectUser } from "@db/schema";
 import React from 'react';
 
 async function syncUser(corbadoUser: { id: string; email: string; name?: string }) {
+  console.log('Syncing Corbado user:', corbadoUser); // Debug log
+
+  if (!corbadoUser.id || !corbadoUser.email) {
+    console.error('Invalid Corbado user data:', corbadoUser);
+    throw new Error('Invalid user data');
+  }
+
   const response = await fetch('/api/users/sync', {
     method: 'POST',
     headers: {
@@ -18,10 +25,14 @@ async function syncUser(corbadoUser: { id: string; email: string; name?: string 
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    const error = await response.text();
+    console.error('User sync failed:', error);
+    throw new Error(error);
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log('User sync successful:', data); // Debug log
+  return data;
 }
 
 export function useUser() {
@@ -31,14 +42,21 @@ export function useUser() {
   // Sync Corbado user with our database
   const { mutate: syncUserMutation } = useMutation({
     mutationFn: syncUser,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('User sync mutation successful:', data);
       queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+    },
+    onError: (error) => {
+      console.error('User sync mutation failed:', error);
     },
   });
 
   // When Corbado user changes, sync with our database
   React.useEffect(() => {
+    console.log('Corbado auth state:', { isAuthenticated, corbadoUser }); // Debug log
+
     if (corbadoUser && isAuthenticated) {
+      console.log('Triggering user sync for:', corbadoUser); // Debug log
       syncUserMutation({
         id: corbadoUser.id,
         email: corbadoUser.email,
@@ -49,7 +67,7 @@ export function useUser() {
 
   // Convert Corbado user to our user type
   const userData: SelectUser | null = corbadoUser ? {
-    id: corbadoUser.id, // Keep as string
+    id: corbadoUser.id,
     username: corbadoUser.name || corbadoUser.email.split('@')[0],
     email: corbadoUser.email,
     bio: null,
