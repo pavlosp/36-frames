@@ -23,6 +23,44 @@ export function registerRoutes(app: Express): Server {
   // Serve static files from uploads directory
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
+  // Sync Corbado user with our database
+  app.post("/api/users/sync", async (req, res) => {
+    try {
+      const { id, email, username } = req.body;
+
+      if (!id || !email || !username) {
+        return res.status(400).send("Missing required user data");
+      }
+
+      // Check if user exists
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, id))
+        .limit(1);
+
+      if (existingUser) {
+        return res.json(existingUser);
+      }
+
+      // Create new user
+      const [user] = await db
+        .insert(users)
+        .values({
+          id,
+          email,
+          username,
+          bio: null,
+        })
+        .returning();
+
+      res.json(user);
+    } catch (error: any) {
+      console.error("Error syncing user:", error);
+      res.status(500).send(error.message);
+    }
+  });
+
   // Get user profile with their albums
   app.get("/api/users/:username", async (req, res) => {
     const [user] = await db
