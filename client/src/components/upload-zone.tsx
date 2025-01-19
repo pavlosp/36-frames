@@ -117,7 +117,9 @@ export default function UploadZone({
     disabled: isProcessing,
   });
 
-  const removeFile = (index: number) => {
+  const handleRemoveFile = (e: React.MouseEvent, index: number) => {
+    e.preventDefault(); // Prevent form submission
+    e.stopPropagation(); // Stop event from bubbling up
     const newFiles = [...files];
     newFiles.splice(index, 1);
     onFilesChange(newFiles);
@@ -164,10 +166,11 @@ export default function UploadZone({
                 className="w-full h-full object-cover rounded-lg"
               />
               <Button
+                type="button" // Explicitly set type to button
                 variant="destructive"
                 size="icon"
                 className="absolute top-2 right-2 h-6 w-6"
-                onClick={() => removeFile(index)}
+                onClick={(e) => handleRemoveFile(e, index)}
               >
                 <X className="h-4 w-4" />
               </Button>
