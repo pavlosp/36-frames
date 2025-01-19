@@ -21,13 +21,19 @@ export default function CreateAlbum() {
 
   const createAlbum = useMutation({
     mutationFn: async (data: InsertAlbum & { photos: File[] }) => {
+      if (!user) {
+        throw new Error("You must be logged in to create an album");
+      }
+
       const formData = new FormData();
       formData.append("title", data.title);
       formData.append("description", data.description || "");
-      formData.append("user", JSON.stringify(user)); // Pass the user object
+      formData.append("userId", user.id.toString()); // Send user ID directly
       data.photos.forEach((photo) => {
         formData.append("photos", photo);
       });
+
+      console.log("Creating album with user:", user.id); // Debug log
 
       const res = await fetch("/api/albums", {
         method: "POST",
@@ -47,7 +53,7 @@ export default function CreateAlbum() {
       });
       setLocation(`/album/${data.slug}`);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Error",
         description: error.message,
@@ -58,6 +64,14 @@ export default function CreateAlbum() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create an album",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!title) {
       toast({
         title: "Error",
@@ -83,7 +97,12 @@ export default function CreateAlbum() {
       return;
     }
 
-    createAlbum.mutate({ title, description, photos: files });
+    createAlbum.mutate({ 
+      title, 
+      description, 
+      photos: files,
+      userId: user.id, // Include user ID in mutation
+    } as any);
   };
 
   const handleFilesChange = (newFiles: File[]) => {

@@ -94,21 +94,15 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("No photos uploaded");
       }
 
-      const { title, description } = req.body;
+      const { title, description, userId } = req.body;
       if (!title) {
         return res.status(400).send("Title is required");
       }
 
-      // Get the Corbado user data from the request
-      let userData;
-      try {
-        userData = JSON.parse(req.body.user);
-      } catch (error) {
-        console.error("Error parsing user data:", error);
-        return res.status(400).send("Invalid user data format");
-      }
+      console.log("Received userId:", userId); // Debug log
 
-      if (!userData?.id) {
+      // Validate user ID
+      if (!userId) {
         return res.status(401).send("User not authenticated");
       }
 
@@ -119,9 +113,11 @@ export function registerRoutes(app: Express): Server {
           title,
           description,
           slug: `${nanoid(10)}`,
-          userId: userData.id, // Corbado ID is already an integer
+          userId: parseInt(userId), // Parse the user ID as integer
         })
         .returning();
+
+      console.log("Created album:", album); // Debug log
 
       // Ensure uploads directory exists
       const uploadsDir = path.join(process.cwd(), "uploads");
@@ -168,7 +164,7 @@ export function registerRoutes(app: Express): Server {
 
       res.json(album);
     } catch (error: any) {
-      console.error(error);
+      console.error("Error creating album:", error);
       if (error.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).send("One or more photos exceed the 1MB size limit");
       }
