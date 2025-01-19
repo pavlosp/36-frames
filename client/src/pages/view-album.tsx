@@ -74,16 +74,18 @@ export default function ViewAlbum() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div 
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 [&>*]:w-full [&>*]:break-inside-avoid"
+        >
           {data.album.photos.map((photo) => (
             <div
               key={photo.id}
-              className="aspect-square rounded-lg overflow-hidden"
+              className="relative pb-[56.25%] rounded-lg overflow-hidden bg-muted"
             >
               <img
                 src={photo.url}
                 alt=""
-                className="w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                 loading="lazy"
               />
             </div>
