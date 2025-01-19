@@ -7,7 +7,7 @@ import {
 import type {
   GenerateAuthenticationOptionsOpts,
   GenerateRegistrationOptionsOpts,
-  VerifyAuthenticationResponseOpts,
+  VerifyAuthenticationOptionsOpts,
   VerifyRegistrationResponseOpts,
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
@@ -21,7 +21,10 @@ const host = process.env.REPL_SLUG
     : `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`)
   : "localhost";
 
-const rpID = host.split(':')[0]; // Remove port if present
+const rpID = process.env.REPL_ENVIRONMENT === 'development'
+  ? "replit.dev"  // Allow all *.replit.dev subdomains in development
+  : host.split(':')[0]; // Remove port if present
+
 const rpName = "36 Frames";
 const origin = process.env.REPL_SLUG 
   ? `https://${host}`
