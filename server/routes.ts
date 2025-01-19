@@ -9,7 +9,6 @@ import path from "path";
 import fs from "fs/promises";
 import express from "express";
 import { eq } from "drizzle-orm";
-import { setupAuth } from "./auth";
 
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -20,18 +19,7 @@ const upload = multer({
   }
 });
 
-// Middleware to ensure user is authenticated
-function requireAuth(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
-  if (!req.isAuthenticated()) {
-    return res.status(401).send("Authentication required");
-  }
-  next();
-}
-
 export function registerRoutes(app: Express): Server {
-  // Set up authentication
-  setupAuth(app);
-
   // Serve static files from uploads directory
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
@@ -98,8 +86,8 @@ export function registerRoutes(app: Express): Server {
     res.json({ album });
   });
 
-  // Create new album (authenticated)
-  app.post("/api/albums", requireAuth, upload.array("photos", 36), async (req, res) => {
+  // Create new album
+  app.post("/api/albums", upload.array("photos", 36), async (req, res) => {
     try {
       const files = req.files as Express.Multer.File[];
       if (!files || files.length === 0) {
@@ -118,7 +106,7 @@ export function registerRoutes(app: Express): Server {
           title,
           description,
           slug: `${nanoid(10)}`,
-          userId: req.user!.id, // Set the user ID for the album
+          userId: parseInt(req.body.userId), // Get user ID from Corbado
         })
         .returning();
 
