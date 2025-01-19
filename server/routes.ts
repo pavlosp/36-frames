@@ -99,9 +99,16 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Title is required");
       }
 
-      // Get the Corbado user ID from the request
-      const userId = req.body.user?.id;
-      if (!userId) {
+      // Get the Corbado user data from the request
+      let userData;
+      try {
+        userData = JSON.parse(req.body.user);
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+        return res.status(400).send("Invalid user data format");
+      }
+
+      if (!userData?.id) {
         return res.status(401).send("User not authenticated");
       }
 
@@ -112,7 +119,7 @@ export function registerRoutes(app: Express): Server {
           title,
           description,
           slug: `${nanoid(10)}`,
-          userId: parseInt(userId),
+          userId: userData.id, // Corbado ID is already an integer
         })
         .returning();
 
