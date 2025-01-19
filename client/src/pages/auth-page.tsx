@@ -28,7 +28,7 @@ export default function AuthPage() {
 
   const form = useForm<AuthFormData>({
     resolver: zodResolver(
-      isLogin 
+      isLogin
         ? insertUserSchema.pick({ email: true })
         : insertUserSchema.pick({ username: true, email: true, bio: true })
     ),
@@ -75,7 +75,7 @@ export default function AuthPage() {
             </h1>
           </div>
           <p className="text-muted-foreground">
-            A secure digital photo album platform for sharing your precious moments with friends and family
+            Bring back the charm of 36-frame film rolls. Curate your own photo stories. Share beautifully-crafted albums with a single link!
           </p>
         </div>
 

@@ -18,6 +18,8 @@ import type {
 console.log("domain", process.env.DOMAIN);
 console.log("environment", process.env.REPL_ENVIRONMENT);
 console.log("slug", process.env.REPL_SLUG);
+console.log("user", process.env.REPL_OWNER);
+console.log("domain", process.env.REPLIT_DEV_DOMAIN);
 
 const host = process.env.REPL_SLUG
   ? process.env.REPL_ENVIRONMENT === "development"
