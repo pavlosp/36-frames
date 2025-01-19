@@ -44,9 +44,18 @@ export async function generateRegistration(
   const userIdBytes = new TextEncoder().encode(user.id.toString());
 
   try {
+    const isDevelopment = process.env.REPL_ENVIRONMENT === 'development' || host.includes('.replit.dev');
+    const effectiveRpID = isDevelopment ? "replit.dev" : rpID;
+
+    console.log('Generating registration options with:', {
+      rpID: effectiveRpID,
+      origin,
+      isDevelopment
+    });
+
     const options = await generateRegistrationOptions({
       rpName,
-      rpID,
+      rpID: effectiveRpID,  // Use development rpID from the start
       userID: userIdBytes,
       userName: user.email,
       userDisplayName: user.username,
@@ -61,11 +70,6 @@ export async function generateRegistration(
         transports: cred.transports,
       })),
     });
-
-    // Override rpID for development
-    if (process.env.REPL_ENVIRONMENT === 'development' || host.includes('.replit.dev')) {
-      options.rp.id = "replit.dev";
-    }
 
     console.log('Generated registration options:', {
       rpID: options.rp.id,
@@ -87,9 +91,18 @@ export async function generateAuthentication(
   existingCredentials: Array<{ credentialID: string; transports?: AuthenticatorTransport[] }> = []
 ): Promise<GenerateAuthenticationOptionsOpts> {
   try {
+    const isDevelopment = process.env.REPL_ENVIRONMENT === 'development' || host.includes('.replit.dev');
+    const effectiveRpID = isDevelopment ? "replit.dev" : rpID;
+
+    console.log('Generating authentication options with:', {
+      rpID: effectiveRpID,
+      origin,
+      isDevelopment
+    });
+
     const options = await generateAuthenticationOptions({
       timeout: 60000,
-      rpID,
+      rpID: effectiveRpID,  // Use development rpID from the start
       allowCredentials: existingCredentials.map(cred => ({
         id: Buffer.from(cred.credentialID, 'base64url'),
         type: 'public-key',
@@ -97,11 +110,6 @@ export async function generateAuthentication(
       })),
       userVerification: 'preferred',
     });
-
-    // Override rpID for development
-    if (process.env.REPL_ENVIRONMENT === 'development' || host.includes('.replit.dev')) {
-      options.rpId = "replit.dev";
-    }
 
     console.log('Generated authentication options:', {
       rpID: options.rpId,
@@ -124,8 +132,11 @@ export async function verifyRegistration(
   expectedChallenge: string
 ): Promise<boolean> {
   try {
+    const isDevelopment = process.env.REPL_ENVIRONMENT === 'development' || host.includes('.replit.dev');
+    const effectiveRpID = isDevelopment ? "replit.dev" : rpID;
+
     console.log('Verifying registration with:', {
-      rpID,
+      rpID: effectiveRpID,
       origin,
       expectedChallenge: expectedChallenge ? '[present]' : '[missing]'
     });
@@ -133,7 +144,7 @@ export async function verifyRegistration(
     const verification = await verifyRegistrationResponse({
       response,
       expectedChallenge,
-      expectedRPID: rpID,
+      expectedRPID: effectiveRpID,
       expectedOrigin: origin,
       requireUserVerification: true,
     });
@@ -158,10 +169,13 @@ export async function verifyAuthentication(
   }
 ): Promise<boolean> {
   try {
+    const isDevelopment = process.env.REPL_ENVIRONMENT === 'development' || host.includes('.replit.dev');
+    const effectiveRpID = isDevelopment ? "replit.dev" : rpID;
+
     const verification = await verifyAuthenticationResponse({
       response,
       expectedChallenge,
-      expectedRPID: rpID,
+      expectedRPID: effectiveRpID,
       expectedOrigin: origin,
       authenticator,
       requireUserVerification: true,
