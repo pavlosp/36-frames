@@ -28,10 +28,13 @@ export async function generateRegistration(
   user: { id: number; username: string; email: string },
   existingCredentials: Array<{ credentialID: string; transports?: AuthenticatorTransport[] }> = []
 ): Promise<GenerateRegistrationOptionsOpts> {
+  // Convert user ID to Uint8Array
+  const userIdBytes = new TextEncoder().encode(user.id.toString());
+
   return generateRegistrationOptions({
     rpName,
     rpID,
-    userID: user.id.toString(),
+    userID: userIdBytes,
     userName: user.email,
     userDisplayName: user.username,
     attestationType: 'none',
@@ -54,6 +57,7 @@ export async function generateAuthentication(
   existingCredentials: Array<{ credentialID: string; transports?: AuthenticatorTransport[] }> = []
 ): Promise<GenerateAuthenticationOptionsOpts> {
   return generateAuthenticationOptions({
+    timeout: 60000,
     rpID,
     allowCredentials: existingCredentials.map(cred => ({
       id: Buffer.from(cred.credentialID, 'base64url'),
