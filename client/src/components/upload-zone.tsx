@@ -1,7 +1,7 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Card } from "@/components/ui/card";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface UploadZoneProps {
@@ -74,17 +74,34 @@ export default function UploadZone({
   onFilesChange,
   maxFiles = 36,
 }: UploadZoneProps) {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processedCount, setProcessedCount] = useState(0);
+  const [totalToProcess, setTotalToProcess] = useState(0);
+
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       try {
+        setIsProcessing(true);
+        setProcessedCount(0);
+        setTotalToProcess(acceptedFiles.length);
+
         // Compress all images in parallel
         const compressedFiles = await Promise.all(
-          acceptedFiles.map(compressImage)
+          acceptedFiles.map(async (file, index) => {
+            const compressed = await compressImage(file);
+            setProcessedCount(prev => prev + 1);
+            return compressed;
+          })
         );
+
         const newFiles = [...files, ...compressedFiles].slice(0, maxFiles);
         onFilesChange(newFiles);
       } catch (error) {
         console.error("Error compressing images:", error);
+      } finally {
+        setIsProcessing(false);
+        setProcessedCount(0);
+        setTotalToProcess(0);
       }
     },
     [files, maxFiles, onFilesChange]
@@ -97,6 +114,7 @@ export default function UploadZone({
     },
     maxFiles: maxFiles - files.length,
     maxSize: 10 * 1024 * 1024, // 10MB initial limit before compression
+    disabled: isProcessing,
   });
 
   const removeFile = (index: number) => {
@@ -111,18 +129,29 @@ export default function UploadZone({
         {...getRootProps()}
         className={`p-8 border-dashed cursor-pointer text-center ${
           isDragActive ? "border-primary" : ""
-        }`}
+        } ${isProcessing ? "opacity-50" : ""}`}
       >
         <input {...getInputProps()} />
-        <ImagePlus className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-        <p className="text-muted-foreground">
-          {isDragActive
-            ? "Drop the photos here..."
-            : "Drag & drop photos here, or click to select"}
-        </p>
-        <p className="text-sm text-muted-foreground mt-2">
-          {files.length}/{maxFiles} photos
-        </p>
+        {isProcessing ? (
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="w-12 h-12 animate-spin text-muted-foreground" />
+            <p className="text-muted-foreground">
+              Processing {processedCount}/{totalToProcess} images...
+            </p>
+          </div>
+        ) : (
+          <>
+            <ImagePlus className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">
+              {isDragActive
+                ? "Drop the photos here..."
+                : "Drag & drop photos here, or click to select"}
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              {files.length}/{maxFiles} photos
+            </p>
+          </>
+        )}
       </Card>
 
       {files.length > 0 && (
