@@ -16,7 +16,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 import { insertUserSchema } from "@db/schema";
-import { Fingerprint } from "lucide-react";
+import { Fingerprint, Camera } from "lucide-react";
 import type { InsertUser } from "@db/schema";
 
 type AuthFormData = Pick<InsertUser, "username" | "email" | "bio">;
@@ -67,11 +67,16 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <Card className="w-full max-w-md p-6">
-        <div className="flex items-center justify-center mb-6">
-          <Fingerprint className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-bold ml-2">
-            {isLogin ? "Welcome Back" : "Create Account"}
-          </h1>
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Camera className="h-8 w-8 text-primary" />
+            <h1 className="text-2xl font-bold">
+              36 Frames - {isLogin ? "Welcome Back" : "Create Account"}
+            </h1>
+          </div>
+          <p className="text-muted-foreground">
+            A secure digital photo album platform for sharing your precious moments with friends and family
+          </p>
         </div>
 
         <Form {...form}>
@@ -141,7 +146,7 @@ export default function AuthPage() {
           </form>
         </Form>
 
-        <div className="mt-4 text-center">
+        <div className="mt-6 text-center">
           <Button
             variant="link"
             onClick={() => setIsLogin(!isLogin)}
