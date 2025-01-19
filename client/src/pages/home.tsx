@@ -2,13 +2,33 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { Album } from "@db/schema";
-import { Camera } from "lucide-react";
+import { Camera, LogOut } from "lucide-react";
 import AlbumGrid from "@/components/album-grid";
+import { useUser } from "@/hooks/use-user";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
   const { data: albums, isLoading } = useQuery<Album[]>({
     queryKey: ["/api/albums"],
   });
+  const { logout } = useUser();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: "Logged out",
+        description: "Successfully logged out",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -17,12 +37,22 @@ export default function Home() {
           <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             36 Frames
           </h1>
-          <Link href="/create">
-            <Button className="gap-2">
-              <Camera className="h-4 w-4" />
-              Create Album
+          <div className="flex items-center gap-2">
+            <Link href="/create">
+              <Button className="gap-2">
+                <Camera className="h-4 w-4" />
+                Create Album
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
             </Button>
-          </Link>
+          </div>
         </div>
 
         {isLoading ? (
