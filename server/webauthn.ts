@@ -7,7 +7,7 @@ import {
 import type {
   GenerateAuthenticationOptionsOpts,
   GenerateRegistrationOptionsOpts,
-  VerifyAuthenticationOptionsOpts,
+  VerifyAuthenticationResponseOpts,
   VerifyRegistrationResponseOpts,
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
@@ -21,7 +21,8 @@ const host = process.env.REPL_SLUG
     : `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`)
   : "localhost";
 
-const rpID = process.env.REPL_ENVIRONMENT === 'development'
+// For development, use replit.dev to allow all subdomains
+const rpID = process.env.REPL_ENVIRONMENT === 'development' || host.includes('.replit.dev')
   ? "replit.dev"  // Allow all *.replit.dev subdomains in development
   : host.split(':')[0]; // Remove port if present
 
