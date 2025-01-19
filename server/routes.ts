@@ -99,6 +99,12 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Title is required");
       }
 
+      // Get the Corbado user ID from the request
+      const userId = req.body.user?.id;
+      if (!userId) {
+        return res.status(401).send("User not authenticated");
+      }
+
       // Create album
       const [album] = await db
         .insert(albums)
@@ -106,7 +112,7 @@ export function registerRoutes(app: Express): Server {
           title,
           description,
           slug: `${nanoid(10)}`,
-          userId: parseInt(req.body.userId), // Get user ID from Corbado
+          userId: parseInt(userId),
         })
         .returning();
 

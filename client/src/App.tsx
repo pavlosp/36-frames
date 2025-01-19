@@ -10,10 +10,11 @@ import Home from "@/pages/home";
 import CreateAlbum from "@/pages/create-album";
 import ViewAlbum from "@/pages/view-album";
 import Profile from "@/pages/profile";
-import { CorbadoProvider } from '@corbado/react';
+import { CorbadoProvider } from "@corbado/react";
 
 // Log the project ID for debugging
-console.log('Corbado Project ID:', import.meta.env.VITE_CORBADO_PROJECT_ID);
+const VITE_CORBADO_PROJECT_ID = "pro-6653263483389419887";
+console.log("Corbado Project ID:", VITE_CORBADO_PROJECT_ID);
 
 function Router() {
   const { user, isLoading } = useUser();
@@ -42,9 +43,9 @@ function Router() {
 }
 
 function App() {
-  const projectId = import.meta.env.VITE_CORBADO_PROJECT_ID;
+  const projectId = VITE_CORBADO_PROJECT_ID;
   if (!projectId) {
-    console.error('Missing VITE_CORBADO_PROJECT_ID environment variable');
+    console.error("Missing VITE_CORBADO_PROJECT_ID environment variable");
     return (
       <div className="flex items-center justify-center min-h-screen text-red-500">
         Error: Corbado Project ID not configured
@@ -53,11 +54,7 @@ function App() {
   }
 
   return (
-    <CorbadoProvider
-      projectId={projectId}
-      darkMode="auto"
-      locale="en"
-    >
+    <CorbadoProvider projectId={projectId} darkMode="off">
       <QueryClientProvider client={queryClient}>
         <Router />
         <Toaster />

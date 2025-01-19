@@ -9,10 +9,12 @@ import { useMutation } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
 import UploadZone from "@/components/upload-zone";
 import type { InsertAlbum } from "@db/schema";
+import { useUser } from "@/hooks/use-user";
 
 export default function CreateAlbum() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user } = useUser();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -22,6 +24,7 @@ export default function CreateAlbum() {
       const formData = new FormData();
       formData.append("title", data.title);
       formData.append("description", data.description || "");
+      formData.append("user", JSON.stringify(user)); // Pass the user object
       data.photos.forEach((photo) => {
         formData.append("photos", photo);
       });
