@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card } from "@/components/ui/card";
@@ -25,6 +25,10 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const { toast } = useToast();
   const { login, register } = useUser();
+
+  useEffect(() => {
+    document.title = "36 Frames: Share your photo stories";
+  }, []);
 
   const form = useForm<AuthFormData>({
     resolver: zodResolver(
