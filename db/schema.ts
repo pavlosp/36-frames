@@ -1,9 +1,19 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
+import { z } from "zod";
+
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: varchar("username", { length: 12 }).unique().notNull(),
+  password: text("password").notNull(),
+  bio: text("bio"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 export const albums = pgTable("albums", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id), // Made nullable
   title: text("title").notNull(),
   description: text("description"),
   slug: text("slug").unique().notNull(),
@@ -18,8 +28,17 @@ export const photos = pgTable("photos", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const albumRelations = relations(albums, ({ many }) => ({
+// Relations
+export const userRelations = relations(users, ({ many }) => ({
+  albums: many(albums),
+}));
+
+export const albumRelations = relations(albums, ({ many, one }) => ({
   photos: many(photos),
+  user: one(users, {
+    fields: [albums.userId],
+    references: [users.id],
+  }),
 }));
 
 export const photoRelations = relations(photos, ({ one }) => ({
@@ -29,11 +48,25 @@ export const photoRelations = relations(photos, ({ one }) => ({
   }),
 }));
 
+// Schemas with validation
+export const insertUserSchema = createInsertSchema(users, {
+  username: z.string()
+    .min(3, "Username must be at least 3 characters")
+    .max(12, "Username cannot exceed 12 characters")
+    .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  bio: z.string().max(500, "Bio cannot exceed 500 characters").optional(),
+});
+
+export const selectUserSchema = createSelectSchema(users);
 export const insertAlbumSchema = createInsertSchema(albums);
 export const selectAlbumSchema = createSelectSchema(albums);
 export const insertPhotoSchema = createInsertSchema(photos);
 export const selectPhotoSchema = createSelectSchema(photos);
 
+// Types
+export type User = typeof users.$inferSelect;
+export type InsertUser = typeof users.$inferInsert;
 export type Album = typeof albums.$inferSelect;
 export type InsertAlbum = typeof albums.$inferInsert;
 export type Photo = typeof photos.$inferSelect;
