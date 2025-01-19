@@ -143,13 +143,37 @@ export default function UploadZone({
     [files, maxFiles, onFilesChange, toast]
   );
 
+  const onDropRejected = useCallback((fileRejections: any[]) => {
+    const tooManyFiles = fileRejections.some(
+      rejection => rejection.errors.some(error => error.code === 'too-many-files')
+    );
+
+    if (tooManyFiles) {
+      toast({
+        title: "Too many files",
+        description: `You can only upload up to ${maxFiles} photos at once. Please select fewer files.`,
+        variant: "destructive"
+      });
+    }
+  }, [maxFiles, toast]);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected,
     accept: {
       "image/*": [".jpeg", ".jpg", ".png", ".webp"],
     },
     maxFiles: maxFiles - files.length,
     disabled: isProcessing || files.length >= maxFiles,
+    validator: (file) => {
+      if (files.length + 1 > maxFiles) {
+        return {
+          code: "too-many-files",
+          message: `Maximum ${maxFiles} photos allowed`
+        };
+      }
+      return null;
+    }
   });
 
   const handleRemoveFile = (e: React.MouseEvent, index: number) => {
