@@ -28,7 +28,7 @@ export async function generateRegistration(
   user: { id: number; username: string; email: string },
   existingCredentials: Array<{ credentialID: string; transports?: AuthenticatorTransport[] }> = []
 ): Promise<GenerateRegistrationOptionsOpts> {
-  return {
+  return generateRegistrationOptions({
     rpName,
     rpID,
     userID: user.id.toString(),
@@ -44,7 +44,7 @@ export async function generateRegistration(
       type: 'public-key',
       transports: cred.transports,
     })),
-  };
+  });
 }
 
 /**
@@ -53,7 +53,7 @@ export async function generateRegistration(
 export async function generateAuthentication(
   existingCredentials: Array<{ credentialID: string; transports?: AuthenticatorTransport[] }> = []
 ): Promise<GenerateAuthenticationOptionsOpts> {
-  return {
+  return generateAuthenticationOptions({
     rpID,
     allowCredentials: existingCredentials.map(cred => ({
       id: Buffer.from(cred.credentialID, 'base64url'),
@@ -61,45 +61,57 @@ export async function generateAuthentication(
       transports: cred.transports,
     })),
     userVerification: 'preferred',
-  };
+  });
 }
 
 /**
  * Verify the registration response from the client
  */
 export async function verifyRegistration(
-  opts: Pick<VerifyRegistrationResponseOpts, 'response' | 'expectedChallenge'>
+  response: RegistrationResponseJSON,
+  expectedChallenge: string
 ): Promise<boolean> {
-  const verification = await verifyRegistrationResponse({
-    ...opts,
-    expectedRPID: rpID,
-    expectedOrigin: origin,
-    requireUserVerification: true,
-  });
+  try {
+    const verification = await verifyRegistrationResponse({
+      response,
+      expectedChallenge,
+      expectedRPID: rpID,
+      expectedOrigin: origin,
+      requireUserVerification: true,
+    });
 
-  return verification.verified;
+    return verification.verified;
+  } catch (error) {
+    console.error('Error verifying registration:', error);
+    return false;
+  }
 }
 
 /**
  * Verify the authentication response from the client
  */
 export async function verifyAuthentication(
-  opts: Pick<VerifyAuthenticationResponseOpts, 'response' | 'expectedChallenge'> & {
-    authenticator: {
-      credentialID: Buffer;
-      credentialPublicKey: Buffer;
-      counter: number;
-    };
+  response: AuthenticationResponseJSON,
+  expectedChallenge: string,
+  authenticator: {
+    credentialID: Buffer;
+    credentialPublicKey: Buffer;
+    counter: number;
   }
 ): Promise<boolean> {
-  const verification = await verifyAuthenticationResponse({
-    response: opts.response as AuthenticationResponseJSON,
-    expectedChallenge: opts.expectedChallenge,
-    expectedRPID: rpID,
-    expectedOrigin: origin,
-    authenticator: opts.authenticator,
-    requireUserVerification: true,
-  });
+  try {
+    const verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge,
+      expectedRPID: rpID,
+      expectedOrigin: origin,
+      authenticator,
+      requireUserVerification: true,
+    });
 
-  return verification.verified;
+    return verification.verified;
+  } catch (error) {
+    console.error('Error verifying authentication:', error);
+    return false;
+  }
 }

@@ -11,6 +11,10 @@ import {
   verifyAuthentication,
 } from "./webauthn";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
+import type { 
+  RegistrationResponseJSON,
+  AuthenticationResponseJSON,
+} from "@simplewebauthn/server";
 
 // extend express session with our custom properties
 declare module 'express-session' {
@@ -95,7 +99,7 @@ export function setupAuth(app: Express) {
       // Store challenge in session
       req.session.registration = {
         userId: user.id,
-        challenge: options.challenge,
+        challenge: options.challenge.toString(),
       };
 
       res.json(options);
@@ -115,23 +119,21 @@ export function setupAuth(app: Express) {
     try {
       const { userId, challenge } = registration;
 
-      const verification = await verifyRegistration({
-        response: req.body,
-        expectedChallenge: challenge,
-      });
+      const verification = await verifyRegistration(
+        req.body as RegistrationResponseJSON,
+        challenge
+      );
 
       if (!verification) {
         return res.status(400).send("Invalid registration response");
       }
 
-      const { credentialID, credentialPublicKey, counter } = req.body;
-
       // Save the new authenticator
       await db.insert(authenticators).values({
         userId,
-        credentialID: isoBase64URL.fromBuffer(credentialID),
-        credentialPublicKey: isoBase64URL.fromBuffer(credentialPublicKey),
-        counter,
+        credentialID: req.body.id,
+        credentialPublicKey: req.body.publicKey,
+        counter: req.body.counter,
         credentialDeviceType: req.body.credentialDeviceType,
         credentialBackedUp: req.body.credentialBackedUp,
         transports: req.body.transports,
@@ -191,13 +193,13 @@ export function setupAuth(app: Express) {
       const options = await generateAuthentication(
         userAuthenticators.map(auth => ({
           credentialID: auth.credentialID,
-          transports: auth.transports as any[], //Fixed type error here.  Assuming AuthenticatorTransport is defined elsewhere
+          transports: auth.transports as AuthenticatorTransport[],
         }))
       );
 
       req.session.authentication = {
         userId: user.id,
-        challenge: options.challenge,
+        challenge: options.challenge.toString(),
       };
 
       res.json(options);
@@ -228,15 +230,15 @@ export function setupAuth(app: Express) {
         return res.status(400).send("Authenticator not found");
       }
 
-      const verification = await verifyAuthentication({
-        response: req.body,
-        expectedChallenge: challenge,
-        authenticator: {
+      const verification = await verifyAuthentication(
+        req.body as AuthenticationResponseJSON,
+        challenge,
+        {
           credentialID: isoBase64URL.toBuffer(authenticator.credentialID),
           credentialPublicKey: isoBase64URL.toBuffer(authenticator.credentialPublicKey),
           counter: authenticator.counter,
-        },
-      });
+        }
+      );
 
       if (!verification) {
         return res.status(400).send("Invalid authentication response");
