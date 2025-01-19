@@ -15,28 +15,21 @@ import type {
 } from "@simplewebauthn/server";
 
 // Get the domain from the environment
-console.log("domain", process.env.DOMAIN);
+console.log("host", process.env.REPL_HOST);
 console.log("environment", process.env.REPL_ENVIRONMENT);
 console.log("slug", process.env.REPL_SLUG);
 console.log("user", process.env.REPL_OWNER);
 console.log("domain", process.env.REPLIT_DEV_DOMAIN);
 
-const host = process.env.REPL_SLUG
-  ? process.env.REPL_ENVIRONMENT === "development"
-    ? process.env.REPL_HOST
-    : `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-  : "localhost";
+const host = process.env.REPLIT_DEV_DOMAIN
+  ? process.env.REPLIT_DEV_DOMAIN
+  : `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.app`;
 
 // For development, use replit.dev to allow all subdomains
-const rpID =
-  process.env.REPL_ENVIRONMENT === "development" || host.includes(".replit.dev")
-    ? "replit.dev" // Allow all *.replit.dev subdomains in development
-    : host.split(":")[0]; // Remove port if present
+const rpID = host;
 
 const rpName = "36 Frames";
-const origin = process.env.REPL_SLUG
-  ? `https://${host}`
-  : `http://${host}:5000`;
+const origin = `https://${host}`;
 
 console.log("WebAuthn Configuration:", { rpID, origin, host });
 
