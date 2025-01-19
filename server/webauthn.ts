@@ -14,15 +14,20 @@ import type {
   AuthenticatorTransport
 } from "@simplewebauthn/server";
 
-// Get the domain from the environment or fallback
-const domain = process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : "localhost";
-const rpID = domain;
+// Get the domain from the environment
+const host = process.env.REPL_SLUG 
+  ? (process.env.REPL_ENVIRONMENT === 'development' 
+    ? process.env.REPL_HOST 
+    : `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`)
+  : "localhost";
+
+const rpID = host.split(':')[0]; // Remove port if present
 const rpName = "36 Frames";
 const origin = process.env.REPL_SLUG 
-  ? `https://${domain}`
-  : `http://${domain}:5000`;
+  ? `https://${host}`
+  : `http://${host}:5000`;
 
-console.log('WebAuthn Configuration:', { rpID, origin });
+console.log('WebAuthn Configuration:', { rpID, origin, host });
 
 /**
  * Generate options for registering a new authenticator
@@ -55,6 +60,7 @@ export async function generateRegistration(
 
     console.log('Generated registration options:', {
       rpID: options.rp.id,
+      origin,
       challenge: options.challenge ? '[present]' : '[missing]'
     });
 
@@ -85,6 +91,7 @@ export async function generateAuthentication(
 
     console.log('Generated authentication options:', {
       rpID: options.rpId,
+      origin,
       challenge: options.challenge ? '[present]' : '[missing]'
     });
 
