@@ -14,12 +14,15 @@ import type {
   AuthenticatorTransport
 } from "@simplewebauthn/server";
 
-// This should be the URL of your app
-const rpID = process.env.RP_ID || "localhost";
+// Get the domain from the environment or fallback
+const domain = process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : "localhost";
+const rpID = domain;
 const rpName = "36 Frames";
-const origin = process.env.NODE_ENV === "production"
-  ? `https://${rpID}`
-  : `http://${rpID}:5000`;
+const origin = process.env.REPL_SLUG 
+  ? `https://${domain}`
+  : `http://${domain}:5000`;
+
+console.log('WebAuthn Configuration:', { rpID, origin });
 
 /**
  * Generate options for registering a new authenticator
@@ -31,23 +34,35 @@ export async function generateRegistration(
   // Convert user ID to Uint8Array
   const userIdBytes = new TextEncoder().encode(user.id.toString());
 
-  return generateRegistrationOptions({
-    rpName,
-    rpID,
-    userID: userIdBytes,
-    userName: user.email,
-    userDisplayName: user.username,
-    attestationType: 'none',
-    authenticatorSelection: {
-      residentKey: 'preferred',
-      userVerification: 'preferred',
-    },
-    excludeCredentials: existingCredentials.map(cred => ({
-      id: Buffer.from(cred.credentialID, 'base64url'),
-      type: 'public-key',
-      transports: cred.transports,
-    })),
-  });
+  try {
+    const options = await generateRegistrationOptions({
+      rpName,
+      rpID,
+      userID: userIdBytes,
+      userName: user.email,
+      userDisplayName: user.username,
+      attestationType: 'none',
+      authenticatorSelection: {
+        residentKey: 'preferred',
+        userVerification: 'preferred',
+      },
+      excludeCredentials: existingCredentials.map(cred => ({
+        id: Buffer.from(cred.credentialID, 'base64url'),
+        type: 'public-key',
+        transports: cred.transports,
+      })),
+    });
+
+    console.log('Generated registration options:', {
+      rpID: options.rp.id,
+      challenge: options.challenge ? '[present]' : '[missing]'
+    });
+
+    return options;
+  } catch (error) {
+    console.error('Error generating registration options:', error);
+    throw error;
+  }
 }
 
 /**
@@ -56,16 +71,28 @@ export async function generateRegistration(
 export async function generateAuthentication(
   existingCredentials: Array<{ credentialID: string; transports?: AuthenticatorTransport[] }> = []
 ): Promise<GenerateAuthenticationOptionsOpts> {
-  return generateAuthenticationOptions({
-    timeout: 60000,
-    rpID,
-    allowCredentials: existingCredentials.map(cred => ({
-      id: Buffer.from(cred.credentialID, 'base64url'),
-      type: 'public-key',
-      transports: cred.transports,
-    })),
-    userVerification: 'preferred',
-  });
+  try {
+    const options = await generateAuthenticationOptions({
+      timeout: 60000,
+      rpID,
+      allowCredentials: existingCredentials.map(cred => ({
+        id: Buffer.from(cred.credentialID, 'base64url'),
+        type: 'public-key',
+        transports: cred.transports,
+      })),
+      userVerification: 'preferred',
+    });
+
+    console.log('Generated authentication options:', {
+      rpID: options.rpId,
+      challenge: options.challenge ? '[present]' : '[missing]'
+    });
+
+    return options;
+  } catch (error) {
+    console.error('Error generating authentication options:', error);
+    throw error;
+  }
 }
 
 /**
@@ -76,6 +103,12 @@ export async function verifyRegistration(
   expectedChallenge: string
 ): Promise<boolean> {
   try {
+    console.log('Verifying registration with:', {
+      rpID,
+      origin,
+      expectedChallenge: expectedChallenge ? '[present]' : '[missing]'
+    });
+
     const verification = await verifyRegistrationResponse({
       response,
       expectedChallenge,
