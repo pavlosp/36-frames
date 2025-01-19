@@ -86,22 +86,29 @@ export function useUser() {
 
       const options = await optionsRes.json();
 
-      // Start the authentication process
-      const credential = await startAuthentication(options);
+      try {
+        // Start the authentication process
+        const credential = await startAuthentication(options);
 
-      // Verify the authentication
-      const verifyRes = await fetch('/api/auth/login-verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credential),
-        credentials: 'include',
-      });
+        // Verify the authentication
+        const verifyRes = await fetch('/api/auth/login-verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(credential),
+          credentials: 'include',
+        });
 
-      if (!verifyRes.ok) {
-        throw new Error(await verifyRes.text());
+        if (!verifyRes.ok) {
+          throw new Error(await verifyRes.text());
+        }
+
+        return verifyRes.json();
+      } catch (err: any) {
+        if (err.name === 'NotAllowedError') {
+          throw new Error('Authentication was declined');
+        }
+        throw err;
       }
-
-      return verifyRes.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
@@ -131,22 +138,29 @@ export function useUser() {
 
       const options = await optionsRes.json();
 
-      // Start the registration process
-      const credential = await startRegistration(options);
+      try {
+        // Start the registration process
+        const credential = await startRegistration(options);
 
-      // Verify the registration
-      const verifyRes = await fetch('/api/auth/register-verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credential),
-        credentials: 'include',
-      });
+        // Verify the registration
+        const verifyRes = await fetch('/api/auth/register-verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(credential),
+          credentials: 'include',
+        });
 
-      if (!verifyRes.ok) {
-        throw new Error(await verifyRes.text());
+        if (!verifyRes.ok) {
+          throw new Error(await verifyRes.text());
+        }
+
+        return verifyRes.json();
+      } catch (err: any) {
+        if (err.name === 'NotAllowedError') {
+          throw new Error('Registration was declined');
+        }
+        throw err;
       }
-
-      return verifyRes.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
