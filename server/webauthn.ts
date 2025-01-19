@@ -62,6 +62,11 @@ export async function generateRegistration(
       })),
     });
 
+    // Override rpID for development
+    if (process.env.REPL_ENVIRONMENT === 'development' || host.includes('.replit.dev')) {
+      options.rp.id = "replit.dev";
+    }
+
     console.log('Generated registration options:', {
       rpID: options.rp.id,
       origin,
@@ -92,6 +97,11 @@ export async function generateAuthentication(
       })),
       userVerification: 'preferred',
     });
+
+    // Override rpID for development
+    if (process.env.REPL_ENVIRONMENT === 'development' || host.includes('.replit.dev')) {
+      options.rpId = "replit.dev";
+    }
 
     console.log('Generated authentication options:', {
       rpID: options.rpId,
