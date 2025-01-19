@@ -83,6 +83,19 @@ export default function CreateAlbum() {
     createAlbum.mutate({ title, description, photos: files });
   };
 
+  const handleFilesChange = (newFiles: File[]) => {
+    if (newFiles.length > 36) {
+      toast({
+        title: "Error",
+        description: "Maximum 36 photos allowed",
+        variant: "destructive",
+      });
+      setFiles(newFiles.slice(0, 36)); // Only keep first 36 files
+      return;
+    }
+    setFiles(newFiles);
+  };
+
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="container max-w-2xl">
@@ -115,7 +128,7 @@ export default function CreateAlbum() {
             </div>
             <UploadZone
               files={files}
-              onFilesChange={setFiles}
+              onFilesChange={handleFilesChange}
               maxFiles={36}
             />
             <Button
