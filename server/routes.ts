@@ -113,7 +113,7 @@ export function registerRoutes(app: Express): Server {
           title,
           description,
           slug: `${nanoid(10)}`,
-          userId: parseInt(userId), // Parse the user ID as integer
+          userId: userId, // No need to parse as integer anymore
         })
         .returning();
 

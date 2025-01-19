@@ -1,10 +1,10 @@
-import { pgTable, text, serial, timestamp, integer, varchar, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
+export const users = pgTable("users_new", {
+  id: text("id").primaryKey(), // Corbado IDs are strings
   username: varchar("username", { length: 12 }).unique().notNull(),
   email: varchar("email", { length: 255 }).unique().notNull(),
   bio: text("bio"),
@@ -12,16 +12,16 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const albums = pgTable("albums", {
+export const albums = pgTable("albums_new", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: text("user_id").references(() => users.id).notNull(), // Reference to Corbado user ID
   title: text("title").notNull(),
   description: text("description"),
   slug: text("slug").unique().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const photos = pgTable("photos", {
+export const photos = pgTable("photos_new", {
   id: serial("id").primaryKey(),
   albumId: integer("album_id").references(() => albums.id).notNull(),
   url: text("url").notNull(),
