@@ -7,7 +7,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { users, insertUserSchema, type User as SelectUser } from "@db/schema";
 import { db } from "@db";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
 const crypto = {
@@ -59,26 +59,32 @@ export function setupAuth(app: Express) {
   app.use(passport.session());
 
   passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        const [user] = await db
-          .select()
-          .from(users)
-          .where(eq(users.username, username))
-          .limit(1);
+    new LocalStrategy(
+      {
+        usernameField: 'email', // Use email field for login
+      },
+      async (email, password, done) => {
+        try {
+          // Find user by email
+          const [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
 
-        if (!user) {
-          return done(null, false, { message: "Incorrect username." });
+          if (!user) {
+            return done(null, false, { message: "Incorrect email." });
+          }
+          const isMatch = await crypto.compare(password, user.password);
+          if (!isMatch) {
+            return done(null, false, { message: "Incorrect password." });
+          }
+          return done(null, user);
+        } catch (err) {
+          return done(err);
         }
-        const isMatch = await crypto.compare(password, user.password);
-        if (!isMatch) {
-          return done(null, false, { message: "Incorrect password." });
-        }
-        return done(null, user);
-      } catch (err) {
-        return done(err);
       }
-    })
+    )
   );
 
   passport.serializeUser((user, done) => {
@@ -107,17 +113,20 @@ export function setupAuth(app: Express) {
           .send("Invalid input: " + result.error.issues.map(i => i.message).join(", "));
       }
 
-      const { username, password, bio } = result.data;
+      const { username, email, password, bio } = result.data;
 
-      // Check if user already exists
+      // Check if user already exists (either username or email)
       const [existingUser] = await db
         .select()
         .from(users)
-        .where(eq(users.username, username))
+        .where(or(eq(users.username, username), eq(users.email, email)))
         .limit(1);
 
       if (existingUser) {
-        return res.status(400).send("Username already exists");
+        if (existingUser.username === username) {
+          return res.status(400).send("Username already exists");
+        }
+        return res.status(400).send("Email already exists");
       }
 
       // Hash the password
@@ -128,6 +137,7 @@ export function setupAuth(app: Express) {
         .insert(users)
         .values({
           username,
+          email,
           password: hashedPassword,
           bio,
         })
@@ -140,7 +150,7 @@ export function setupAuth(app: Express) {
         }
         return res.json({
           message: "Registration successful",
-          user: { id: newUser.id, username: newUser.username, bio: newUser.bio },
+          user: { id: newUser.id, username: newUser.username, email: newUser.email, bio: newUser.bio },
         });
       });
     } catch (error) {
@@ -172,7 +182,7 @@ export function setupAuth(app: Express) {
 
         return res.json({
           message: "Login successful",
-          user: { id: user.id, username: user.username, bio: user.bio },
+          user: { id: user.id, username: user.username, email: user.email, bio: user.bio },
         });
       });
     };

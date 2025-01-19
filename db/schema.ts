@@ -6,6 +6,7 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: varchar("username", { length: 12 }).unique().notNull(),
+  email: varchar("email", { length: 255 }).unique().notNull(),
   password: text("password").notNull(),
   bio: text("bio"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -13,7 +14,7 @@ export const users = pgTable("users", {
 
 export const albums = pgTable("albums", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id), // Made nullable
+  userId: integer("user_id").references(() => users.id), 
   title: text("title").notNull(),
   description: text("description"),
   slug: text("slug").unique().notNull(),
@@ -54,6 +55,9 @@ export const insertUserSchema = createInsertSchema(users, {
     .min(3, "Username must be at least 3 characters")
     .max(12, "Username cannot exceed 12 characters")
     .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+  email: z.string()
+    .email("Invalid email address")
+    .max(255, "Email cannot exceed 255 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   bio: z.string().max(500, "Bio cannot exceed 500 characters").optional(),
 });
