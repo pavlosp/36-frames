@@ -74,14 +74,24 @@ export function setupAuth(app: Express) {
 
     try {
       // Check if user exists
-      const [existingUser] = await db
+      const [existingUserByUsername] = await db
         .select()
         .from(users)
         .where(eq(users.username, username))
         .limit(1);
 
-      if (existingUser) {
+      if (existingUserByUsername) {
         return res.status(400).send("Username already exists");
+      }
+
+      const [existingUserByEmail] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+
+      if (existingUserByEmail) {
+        return res.status(400).send("Email already exists");
       }
 
       // Create new user
@@ -90,11 +100,20 @@ export function setupAuth(app: Express) {
         .values({
           username,
           email,
+          bio: req.body.bio || null,
         })
         .returning();
 
+      console.log("Created user:", user);
+
       // Generate registration options
-      const options = await generateRegistration(user);
+      const options = await generateRegistration(user, []);
+
+      if (!options || !options.challenge) {
+        throw new Error("Failed to generate registration options");
+      }
+
+      console.log("Generated registration options");
 
       // Store challenge in session
       req.session.registration = {
@@ -102,9 +121,30 @@ export function setupAuth(app: Express) {
         challenge: options.challenge.toString(),
       };
 
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      console.log("Stored challenge in session");
+
       res.json(options);
     } catch (error) {
-      console.error(error);
+      console.error("Error in registration options:", error);
+
+      // If we created a user but failed later, clean it up
+      if (req.session.registration?.userId) {
+        try {
+          await db
+            .delete(users)
+            .where(eq(users.id, req.session.registration.userId));
+        } catch (cleanupError) {
+          console.error("Failed to cleanup user:", cleanupError);
+        }
+      }
+
       res.status(500).send("Error generating registration options");
     }
   });
