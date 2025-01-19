@@ -3,7 +3,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 import { z } from "zod";
 
-export const users = pgTable("users_new", {
+export const users = pgTable("users", {
   id: text("id").primaryKey(), // Corbado IDs are strings
   username: varchar("username", { length: 12 }).unique().notNull(),
   email: varchar("email", { length: 255 }).unique().notNull(),
@@ -12,7 +12,7 @@ export const users = pgTable("users_new", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const albums = pgTable("albums_new", {
+export const albums = pgTable("albums", {
   id: serial("id").primaryKey(),
   userId: text("user_id").references(() => users.id).notNull(), // Reference to Corbado user ID
   title: text("title").notNull(),
@@ -21,7 +21,7 @@ export const albums = pgTable("albums_new", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const photos = pgTable("photos_new", {
+export const photos = pgTable("photos", {
   id: serial("id").primaryKey(),
   albumId: integer("album_id").references(() => albums.id).notNull(),
   url: text("url").notNull(),
