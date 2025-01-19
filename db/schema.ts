@@ -12,18 +12,6 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const authenticators = pgTable("authenticators", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  credentialID: text("credential_id").notNull(),
-  credentialPublicKey: text("credential_public_key").notNull(),
-  counter: integer("counter").notNull(),
-  credentialDeviceType: varchar("credential_device_type", { length: 32 }).notNull(),
-  credentialBackedUp: boolean("credential_backed_up").notNull(),
-  transports: jsonb("transports"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
 export const albums = pgTable("albums", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
@@ -44,14 +32,6 @@ export const photos = pgTable("photos", {
 // Relations
 export const userRelations = relations(users, ({ many }) => ({
   albums: many(albums),
-  authenticators: many(authenticators),
-}));
-
-export const authenticatorRelations = relations(authenticators, ({ one }) => ({
-  user: one(users, {
-    fields: [authenticators.userId],
-    references: [users.id],
-  }),
 }));
 
 export const albumRelations = relations(albums, ({ many, one }) => ({
@@ -95,5 +75,6 @@ export type Album = typeof albums.$inferSelect;
 export type InsertAlbum = typeof albums.$inferInsert;
 export type Photo = typeof photos.$inferSelect;
 export type InsertPhoto = typeof photos.$inferInsert;
-export type Authenticator = typeof authenticators.$inferSelect;
-export type InsertAuthenticator = typeof authenticators.$inferInsert;
+
+// Export select type
+export type SelectUser = User;

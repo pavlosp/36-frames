@@ -12,6 +12,9 @@ import ViewAlbum from "@/pages/view-album";
 import Profile from "@/pages/profile";
 import { CorbadoProvider } from '@corbado/react';
 
+// Log the project ID for debugging
+console.log('Corbado Project ID:', import.meta.env.VITE_CORBADO_PROJECT_ID);
+
 function Router() {
   const { user, isLoading } = useUser();
 
@@ -39,8 +42,22 @@ function Router() {
 }
 
 function App() {
+  const projectId = import.meta.env.VITE_CORBADO_PROJECT_ID;
+  if (!projectId) {
+    console.error('Missing VITE_CORBADO_PROJECT_ID environment variable');
+    return (
+      <div className="flex items-center justify-center min-h-screen text-red-500">
+        Error: Corbado Project ID not configured
+      </div>
+    );
+  }
+
   return (
-    <CorbadoProvider projectId={import.meta.env.VITE_CORBADO_PROJECT_ID}>
+    <CorbadoProvider
+      projectId={projectId}
+      darkMode="auto"
+      locale="en"
+    >
       <QueryClientProvider client={queryClient}>
         <Router />
         <Toaster />
