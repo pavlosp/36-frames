@@ -14,7 +14,7 @@ const upload = multer({
   storage,
   limits: {
     files: 36,
-    fileSize: 10 * 1024 * 1024, // 10MB
+    fileSize: 1024 * 1024, // 1MB
   }
 });
 
@@ -77,13 +77,35 @@ export function registerRoutes(app: Express): Server {
 
       // Process and save photos
       const photoPromises = files.map(async (file, index) => {
+        // Process image with sharp
         const optimized = await sharp(file.buffer)
           .resize(1200, 1200, {
             fit: "inside",
             withoutEnlargement: true,
           })
-          .jpeg({ quality: 80 })
+          .jpeg({ 
+            quality: 80,
+            mozjpeg: true, // Use mozjpeg for better compression
+            chromaSubsampling: '4:2:0' // Further reduce file size
+          })
           .toBuffer();
+
+        // Check if compressed size is still too large
+        if (optimized.length > 1024 * 1024) {
+          // Try again with more aggressive compression
+          const recompressed = await sharp(optimized)
+            .jpeg({ 
+              quality: 60,
+              mozjpeg: true,
+              chromaSubsampling: '4:2:0'
+            })
+            .toBuffer();
+
+          if (recompressed.length > 1024 * 1024) {
+            throw new Error(`Photo ${index + 1} is too large even after compression`);
+          }
+          optimized = recompressed;
+        }
 
         const photoId = nanoid();
         const photoName = `${photoId}.jpg`;
@@ -102,12 +124,21 @@ export function registerRoutes(app: Express): Server {
         });
       });
 
-      await Promise.all(photoPromises);
+      try {
+        await Promise.all(photoPromises);
+      } catch (error) {
+        // If photo processing fails, clean up the album
+        await db.delete(albums).where(db.sql`id = ${album.id}`);
+        throw error;
+      }
 
       res.json(album);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      res.status(500).send("Error creating album");
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).send("One or more photos exceed the 1MB size limit");
+      }
+      res.status(500).send(error.message || "Error creating album");
     }
   });
 

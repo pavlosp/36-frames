@@ -3,6 +3,7 @@ import { useDropzone } from "react-dropzone";
 import { Card } from "@/components/ui/card";
 import { ImagePlus, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface UploadZoneProps {
   files: File[];
@@ -59,7 +60,7 @@ async function compressImage(file: File): Promise<File> {
             resolve(compressedFile);
           },
           "image/jpeg",
-          0.8 // 80% quality
+          0.8
         );
       };
       img.src = event.target?.result as string;
@@ -77,10 +78,24 @@ export default function UploadZone({
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedCount, setProcessedCount] = useState(0);
   const [totalToProcess, setTotalToProcess] = useState(0);
+  const { toast } = useToast();
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       try {
+        // Check file sizes before processing
+        const oversizedFiles = acceptedFiles.filter(
+          file => file.size > 1024 * 1024
+        );
+
+        if (oversizedFiles.length > 0) {
+          toast({
+            title: "Files too large",
+            description: `${oversizedFiles.length} file(s) exceed the 1MB limit. They will be automatically compressed.`,
+            variant: "default"
+          });
+        }
+
         setIsProcessing(true);
         setProcessedCount(0);
         setTotalToProcess(acceptedFiles.length);
@@ -90,21 +105,32 @@ export default function UploadZone({
           acceptedFiles.map(async (file, index) => {
             const compressed = await compressImage(file);
             setProcessedCount(prev => prev + 1);
+
+            // Check if still too large after compression
+            if (compressed.size > 1024 * 1024) {
+              throw new Error(`File "${file.name}" is still too large after compression`);
+            }
+
             return compressed;
           })
         );
 
         const newFiles = [...files, ...compressedFiles].slice(0, maxFiles);
         onFilesChange(newFiles);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error compressing images:", error);
+        toast({
+          title: "Error processing images",
+          description: error.message,
+          variant: "destructive"
+        });
       } finally {
         setIsProcessing(false);
         setProcessedCount(0);
         setTotalToProcess(0);
       }
     },
-    [files, maxFiles, onFilesChange]
+    [files, maxFiles, onFilesChange, toast]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -113,13 +139,12 @@ export default function UploadZone({
       "image/*": [".jpeg", ".jpg", ".png", ".webp"],
     },
     maxFiles: maxFiles - files.length,
-    maxSize: 10 * 1024 * 1024, // 10MB initial limit before compression
     disabled: isProcessing,
   });
 
   const handleRemoveFile = (e: React.MouseEvent, index: number) => {
-    e.preventDefault(); // Prevent form submission
-    e.stopPropagation(); // Stop event from bubbling up
+    e.preventDefault();
+    e.stopPropagation();
     const newFiles = [...files];
     newFiles.splice(index, 1);
     onFilesChange(newFiles);
@@ -150,7 +175,7 @@ export default function UploadZone({
                 : "Drag & drop photos here, or click to select"}
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              {files.length}/{maxFiles} photos
+              {files.length}/{maxFiles} photos (max 1MB each)
             </p>
           </>
         )}
@@ -166,7 +191,7 @@ export default function UploadZone({
                 className="w-full h-full object-cover rounded-lg"
               />
               <Button
-                type="button" // Explicitly set type to button
+                type="button"
                 variant="destructive"
                 size="icon"
                 className="absolute top-2 right-2 h-6 w-6"
