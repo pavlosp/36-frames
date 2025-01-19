@@ -10,15 +10,82 @@ interface UploadZoneProps {
   maxFiles?: number;
 }
 
+async function compressImage(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxWidth = 1200;
+        const maxHeight = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        // Calculate new dimensions maintaining aspect ratio
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Could not get canvas context"));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Could not create blob"));
+              return;
+            }
+            const compressedFile = new File([blob], file.name, {
+              type: "image/jpeg",
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          },
+          "image/jpeg",
+          0.8 // 80% quality
+        );
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = (error) => reject(error);
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function UploadZone({
   files,
   onFilesChange,
   maxFiles = 36,
 }: UploadZoneProps) {
   const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
-      const newFiles = [...files, ...acceptedFiles].slice(0, maxFiles);
-      onFilesChange(newFiles);
+    async (acceptedFiles: File[]) => {
+      try {
+        // Compress all images in parallel
+        const compressedFiles = await Promise.all(
+          acceptedFiles.map(compressImage)
+        );
+        const newFiles = [...files, ...compressedFiles].slice(0, maxFiles);
+        onFilesChange(newFiles);
+      } catch (error) {
+        console.error("Error compressing images:", error);
+      }
     },
     [files, maxFiles, onFilesChange]
   );
@@ -29,6 +96,7 @@ export default function UploadZone({
       "image/*": [".jpeg", ".jpg", ".png", ".webp"],
     },
     maxFiles: maxFiles - files.length,
+    maxSize: 10 * 1024 * 1024, // 10MB initial limit before compression
   });
 
   const removeFile = (index: number) => {
