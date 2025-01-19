@@ -75,7 +75,7 @@ export default function AuthPage() {
             </h1>
           </div>
           <p className="text-muted-foreground">
-            Bring back the charm of 36-frame film rolls. Curate your own photo stories. Share beautifully-crafted albums with a single link!
+            Curate your own photo stories in 36 frames. Tell your stories and share beautifully-crafted albums with friends and family in one click
           </p>
         </div>
 
