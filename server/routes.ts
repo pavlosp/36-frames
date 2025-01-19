@@ -5,6 +5,9 @@ import { db } from "@db";
 import { albums, photos } from "@db/schema";
 import { nanoid } from "nanoid";
 import sharp from "sharp";
+import path from "path";
+import fs from "fs/promises";
+import express from "express";
 
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -16,6 +19,9 @@ const upload = multer({
 });
 
 export function registerRoutes(app: Express): Server {
+  // Serve static files from uploads directory
+  app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
   // Get all albums
   app.get("/api/albums", async (_req, res) => {
     const allAlbums = await db.query.albums.findMany({
@@ -65,6 +71,10 @@ export function registerRoutes(app: Express): Server {
         })
         .returning();
 
+      // Ensure uploads directory exists
+      const uploadsDir = path.join(process.cwd(), "uploads");
+      await fs.mkdir(uploadsDir, { recursive: true });
+
       // Process and save photos
       const photoPromises = files.map(async (file, index) => {
         const optimized = await sharp(file.buffer)
@@ -77,9 +87,12 @@ export function registerRoutes(app: Express): Server {
 
         const photoId = nanoid();
         const photoName = `${photoId}.jpg`;
-        
-        // In a real app, you would upload to cloud storage here
-        // For this example, we'll use a fake URL
+        const photoPath = path.join(uploadsDir, photoName);
+
+        // Save the file to disk
+        await fs.writeFile(photoPath, optimized);
+
+        // Create URL using the static file server
         const url = `/uploads/${photoName}`;
 
         return db.insert(photos).values({
