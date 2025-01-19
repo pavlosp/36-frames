@@ -10,6 +10,7 @@ import Home from "@/pages/home";
 import CreateAlbum from "@/pages/create-album";
 import ViewAlbum from "@/pages/view-album";
 import Profile from "@/pages/profile";
+import { CorbadoProvider } from '@corbado/react';
 
 function Router() {
   const { user, isLoading } = useUser();
@@ -39,10 +40,12 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
-    </QueryClientProvider>
+    <CorbadoProvider projectId={import.meta.env.VITE_CORBADO_PROJECT_ID}>
+      <QueryClientProvider client={queryClient}>
+        <Router />
+        <Toaster />
+      </QueryClientProvider>
+    </CorbadoProvider>
   );
 }
 
