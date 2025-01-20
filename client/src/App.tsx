@@ -21,20 +21,22 @@ console.log("Corbado Project ID:", VITE_CORBADO_PROJECT_ID);
 
 function Router() {
   const { user, isLoading } = useUser();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   // Redirect authenticated users based on profile completion
   useEffect(() => {
-    if (user) {
+    if (user && location === "/" && !isLoading) {
       if (!user.username || user.username === user.email.split('@')[0]) {
-        // If no custom username is set, redirect to setup
+        // If no custom username is set or using email prefix, redirect to setup
+        console.log("Redirecting to setup - no custom username");
         setLocation('/first-time-setup');
-      } else if (window.location.pathname === '/') {
-        // If user has completed setup and is on home, redirect to profile
+      } else {
+        // If user has completed setup, redirect to profile
+        console.log("Redirecting to profile - setup complete");
         setLocation(`/profile/${user.username}`);
       }
     }
-  }, [user, setLocation]);
+  }, [user, location, isLoading, setLocation]);
 
   if (isLoading) {
     return (
@@ -46,6 +48,11 @@ function Router() {
 
   if (!user) {
     return <AuthPage />;
+  }
+
+  // If user needs to set up their profile, only allow access to setup page
+  if (!user.username || user.username === user.email.split('@')[0]) {
+    return <FirstTimeSetup />;
   }
 
   return (

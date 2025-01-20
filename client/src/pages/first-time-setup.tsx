@@ -9,16 +9,40 @@ import { useMutation } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { Label } from "@/components/ui/label";
 
+const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/;
+
 export default function FirstTimeSetup() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user } = useUser();
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+
+  const validateUsername = (value: string): boolean => {
+    if (value.length < 3) {
+      setUsernameError("Username must be at least 3 characters");
+      return false;
+    }
+    if (value.length > 12) {
+      setUsernameError("Username cannot exceed 12 characters");
+      return false;
+    }
+    if (!USERNAME_REGEX.test(value)) {
+      setUsernameError("Username can only contain letters, numbers, and underscores");
+      return false;
+    }
+    setUsernameError(null);
+    return true;
+  };
 
   const updateProfile = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error("Not authenticated");
+
+      if (!validateUsername(username)) {
+        throw new Error(usernameError || "Invalid username");
+      }
 
       console.log('Updating profile with:', { userId: user.id, username, bio }); // Debug log
 
@@ -52,7 +76,7 @@ export default function FirstTimeSetup() {
       });
       // Force a small delay to ensure state updates are processed
       setTimeout(() => {
-        setLocation(`/profile/${data.username}`);
+        window.location.href = `/profile/${data.username}`; // Use direct navigation
       }, 100);
     },
     onError: (error: any) => {
@@ -75,7 +99,21 @@ export default function FirstTimeSetup() {
       });
       return;
     }
+    if (!validateUsername(username)) {
+      toast({
+        title: "Error",
+        description: usernameError,
+        variant: "destructive",
+      });
+      return;
+    }
     updateProfile.mutate();
+  };
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setUsername(value);
+    validateUsername(value);
   };
 
   return (
@@ -89,11 +127,17 @@ export default function FirstTimeSetup() {
               id="username"
               placeholder="Choose a unique username"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={handleUsernameChange}
               maxLength={12}
+              className={usernameError ? "border-red-500" : ""}
             />
+            {usernameError && (
+              <p className="text-sm text-red-500">
+                {usernameError}
+              </p>
+            )}
             <p className="text-sm text-muted-foreground">
-              This will be your public profile URL
+              Use 3-12 characters, letters, numbers, and underscores only
             </p>
           </div>
           <div className="space-y-2">
@@ -109,7 +153,7 @@ export default function FirstTimeSetup() {
           <Button
             type="submit"
             className="w-full"
-            disabled={updateProfile.isPending}
+            disabled={updateProfile.isPending || !!usernameError}
           >
             {updateProfile.isPending ? "Setting up..." : "Complete Setup"}
           </Button>
