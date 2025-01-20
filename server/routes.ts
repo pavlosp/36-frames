@@ -34,7 +34,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).send("Missing required user data");
       }
 
-      // Check if user exists
+      // First try to find existing user
       const [existingUser] = await db
         .select()
         .from(users)
@@ -43,11 +43,22 @@ export function registerRoutes(app: Express): Server {
 
       if (existingUser) {
         console.log("Found existing user:", existingUser); // Debug log
-        return res.json(existingUser);
+
+        // Update the existing user if needed
+        const [updatedUser] = await db
+          .update(users)
+          .set({
+            email,
+            username,
+          })
+          .where(eq(users.id, id))
+          .returning();
+
+        return res.json(updatedUser);
       }
 
-      // Create new user
-      const [user] = await db
+      // Create new user if none exists
+      const [newUser] = await db
         .insert(users)
         .values({
           id,
@@ -57,8 +68,8 @@ export function registerRoutes(app: Express): Server {
         })
         .returning();
 
-      console.log("Created new user:", user); // Debug log
-      res.json(user);
+      console.log("Created new user:", newUser); // Debug log
+      res.json(newUser);
     } catch (error: any) {
       console.error("Error syncing user:", error);
       res.status(500).send(error.message);
