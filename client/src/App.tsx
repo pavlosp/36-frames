@@ -23,10 +23,16 @@ function Router() {
   const { user, isLoading } = useUser();
   const [, setLocation] = useLocation();
 
-  // Redirect authenticated users to their profile page
+  // Redirect authenticated users based on profile completion
   useEffect(() => {
-    if (user && window.location.pathname === '/') {
-      setLocation(`/profile/${user.username}`);
+    if (user) {
+      if (!user.username || user.username === user.email.split('@')[0]) {
+        // If no custom username is set, redirect to setup
+        setLocation('/first-time-setup');
+      } else if (window.location.pathname === '/') {
+        // If user has completed setup and is on home, redirect to profile
+        setLocation(`/profile/${user.username}`);
+      }
     }
   }, [user, setLocation]);
 

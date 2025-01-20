@@ -60,14 +60,14 @@ export default function Profile() {
         <div className="flex items-center justify-between mb-8">
           {!isOwnProfile && (
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={() => setLocation("/")}
             >
               <Home className="h-4 w-4 mr-2" />
               Home
             </Button>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4 ml-auto">
             {isOwnProfile && (
               <Button
                 onClick={() => setLocation("/create")}
