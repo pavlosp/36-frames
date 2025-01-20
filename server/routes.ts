@@ -285,6 +285,34 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get user profile
+  app.get("/api/users/profile", async (req, res) => {
+    try {
+      const userId = req.query.userId;
+      console.log("Fetching profile for user:", userId); // Debug log
+
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId as string))
+        .limit(1);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      console.log("Found user profile:", user); // Debug log
+      res.json(user);
+    } catch (error: any) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

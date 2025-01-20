@@ -19,7 +19,7 @@ async function syncUser(corbadoUser: any) {
     body: JSON.stringify({
       id: corbadoUser.sub,
       email: corbadoUser.email,
-      username: corbadoUser.email.split('@')[0], // Use email prefix as username
+      username: corbadoUser.email.split('@')[0], // Use email prefix as temporary username
     }),
     credentials: 'include',
   });
@@ -39,12 +39,19 @@ export function useUser() {
   const { loading: isLoading, isAuthenticated, user: corbadoUser, logout } = useCorbado();
   const queryClient = useQueryClient();
 
+  // Query to get user profile from our database
+  const { data: dbUser } = useQuery<SelectUser>({
+    queryKey: ['/api/users/profile', corbadoUser?.sub],
+    enabled: !!corbadoUser?.sub,
+    retry: false,
+  });
+
   // Sync Corbado user with our database
   const { mutate: syncUserMutation } = useMutation({
     mutationFn: syncUser,
     onSuccess: (data) => {
       console.log('User sync mutation successful:', data);
-      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/users/profile'] });
     },
     onError: (error) => {
       console.error('User sync mutation failed:', error);
@@ -61,15 +68,15 @@ export function useUser() {
     }
   }, [corbadoUser, isAuthenticated, syncUserMutation]);
 
-  // Convert Corbado user to our user type
-  const userData: SelectUser | null = corbadoUser ? {
-    id: corbadoUser.sub, // Use sub as the ID
-    username: corbadoUser.email.split('@')[0], // Use email prefix as username
+  // Return the database user if available, otherwise convert Corbado user to our format
+  const userData: SelectUser | null = dbUser || (corbadoUser ? {
+    id: corbadoUser.sub,
+    username: corbadoUser.email.split('@')[0], // Use email prefix as temporary username
     email: corbadoUser.email,
     bio: null,
     currentChallenge: null,
     createdAt: new Date(),
-  } : null;
+  } : null);
 
   return {
     user: isAuthenticated ? userData : null,
