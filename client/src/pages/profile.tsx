@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, LogOut } from "lucide-react";
+import { Camera, Home, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 import AlbumGrid from "@/components/album-grid";
@@ -58,23 +58,36 @@ export default function Profile() {
     <div className="min-h-screen bg-background">
       <div className="container px-4 py-8">
         <div className="flex items-center justify-between mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => setLocation("/")}
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          {isOwnProfile && (
+          {!isOwnProfile && (
             <Button
-              variant="outline"
-              onClick={handleLogout}
-              className="gap-2"
+              variant="ghost"
+              onClick={() => setLocation("/")}
             >
-              <LogOut className="h-4 w-4" />
-              Log Out
+              <Home className="h-4 w-4 mr-2" />
+              Home
             </Button>
           )}
+          <div className="flex items-center gap-2">
+            {isOwnProfile && (
+              <Button
+                onClick={() => setLocation("/create")}
+                className="gap-2"
+              >
+                <Camera className="h-4 w-4" />
+                Create Album
+              </Button>
+            )}
+            {isOwnProfile && (
+              <Button
+                variant="outline"
+                onClick={handleLogout}
+                className="gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Log Out
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="mb-8">
