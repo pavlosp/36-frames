@@ -3,10 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { SelectUser } from "@db/schema";
 import React from 'react';
 
-async function syncUser(corbadoUser: { id: string; email: string; name?: string }) {
+async function syncUser(corbadoUser: any) {
   console.log('Syncing Corbado user:', corbadoUser); // Debug log
 
-  if (!corbadoUser.id || !corbadoUser.email) {
+  if (!corbadoUser.sub || !corbadoUser.email) {
     console.error('Invalid Corbado user data:', corbadoUser);
     throw new Error('Invalid user data');
   }
@@ -17,9 +17,9 @@ async function syncUser(corbadoUser: { id: string; email: string; name?: string 
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      id: corbadoUser.id,
+      id: corbadoUser.sub,
       email: corbadoUser.email,
-      username: corbadoUser.name || corbadoUser.email.split('@')[0],
+      username: corbadoUser.email.split('@')[0], // Use email prefix as username
     }),
     credentials: 'include',
   });
@@ -57,18 +57,14 @@ export function useUser() {
 
     if (corbadoUser && isAuthenticated) {
       console.log('Triggering user sync for:', corbadoUser); // Debug log
-      syncUserMutation({
-        id: corbadoUser.id,
-        email: corbadoUser.email,
-        name: corbadoUser.name,
-      });
+      syncUserMutation(corbadoUser);
     }
   }, [corbadoUser, isAuthenticated, syncUserMutation]);
 
   // Convert Corbado user to our user type
   const userData: SelectUser | null = corbadoUser ? {
-    id: corbadoUser.id,
-    username: corbadoUser.name || corbadoUser.email.split('@')[0],
+    id: corbadoUser.sub, // Use sub as the ID
+    username: corbadoUser.email.split('@')[0], // Use email prefix as username
     email: corbadoUser.email,
     bio: null,
     currentChallenge: null,
