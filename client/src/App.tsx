@@ -10,7 +10,10 @@ import Home from "@/pages/home";
 import CreateAlbum from "@/pages/create-album";
 import ViewAlbum from "@/pages/view-album";
 import Profile from "@/pages/profile";
+import FirstTimeSetup from "@/pages/first-time-setup";
 import { CorbadoProvider } from "@corbado/react";
+import { useLocation } from "wouter";
+import { useEffect } from "react";
 
 // Log the project ID for debugging
 const VITE_CORBADO_PROJECT_ID = "pro-6653263483389419887";
@@ -18,6 +21,14 @@ console.log("Corbado Project ID:", VITE_CORBADO_PROJECT_ID);
 
 function Router() {
   const { user, isLoading } = useUser();
+  const [, setLocation] = useLocation();
+
+  // Redirect authenticated users to their profile page
+  useEffect(() => {
+    if (user && window.location.pathname === '/') {
+      setLocation(`/profile/${user.username}`);
+    }
+  }, [user, setLocation]);
 
   if (isLoading) {
     return (
@@ -33,6 +44,7 @@ function Router() {
 
   return (
     <Switch>
+      <Route path="/first-time-setup" component={FirstTimeSetup} />
       <Route path="/" component={Home} />
       <Route path="/create" component={CreateAlbum} />
       <Route path="/album/:slug" component={ViewAlbum} />

@@ -238,6 +238,43 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Update user profile
+  app.put("/api/users/profile", async (req, res) => {
+    try {
+      const { username, bio } = req.body;
+
+      if (!username) {
+        return res.status(400).send("Username is required");
+      }
+
+      // Check if username is already taken by another user
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.username, username))
+        .limit(1);
+
+      if (existingUser && existingUser.id !== req.body.userId) {
+        return res.status(400).send("Username is already taken");
+      }
+
+      // Update user profile
+      const [updatedUser] = await db
+        .update(users)
+        .set({
+          username,
+          bio: bio || null,
+        })
+        .where(eq(users.id, req.body.userId))
+        .returning();
+
+      res.json(updatedUser);
+    } catch (error: any) {
+      console.error("Error updating user profile:", error);
+      res.status(500).send(error.message);
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
