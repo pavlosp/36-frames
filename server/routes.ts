@@ -26,11 +26,11 @@ export function registerRoutes(app: Express): Server {
   // Sync Corbado user with our database
   app.post("/api/users/sync", async (req, res) => {
     try {
-      const { id, email, username } = req.body;
-      console.log("Syncing user:", { id, email, username }); // Debug log
+      const { id, email } = req.body;
+      console.log("Syncing user:", { id, email }); // Debug log
 
-      if (!id || !email || !username) {
-        console.log("Missing user data:", { id, email, username }); // Debug log
+      if (!id || !email) {
+        console.log("Missing user data:", { id, email }); // Debug log
         return res.status(400).send("Missing required user data");
       }
 
@@ -44,17 +44,18 @@ export function registerRoutes(app: Express): Server {
       if (existingUser) {
         console.log("Found existing user:", existingUser); // Debug log
 
-        // Update the existing user if needed
-        const [updatedUser] = await db
-          .update(users)
-          .set({
-            email,
-            username,
-          })
-          .where(eq(users.id, id))
-          .returning();
+        // Update only if email has changed
+        if (existingUser.email !== email) {
+          const [updatedUser] = await db
+            .update(users)
+            .set({ email })
+            .where(eq(users.id, id))
+            .returning();
 
-        return res.json(updatedUser);
+          return res.json(updatedUser);
+        }
+
+        return res.json(existingUser);
       }
 
       // Create new user if none exists
@@ -63,7 +64,7 @@ export function registerRoutes(app: Express): Server {
         .values({
           id,
           email,
-          username,
+          username: null, // No default username
           bio: null,
         })
         .returning();

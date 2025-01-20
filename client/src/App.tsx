@@ -26,14 +26,11 @@ function Router() {
   // Redirect authenticated users based on profile completion
   useEffect(() => {
     if (user && location === "/" && !isLoading) {
-      // Only consider username not set if it's exactly the email prefix
-      const isTemporaryUsername = user.username === user.email.split('@')[0];
-
-      if (isTemporaryUsername) {
-        console.log("Redirecting to setup - temporary username detected");
+      if (!user.username) {
+        console.log("Redirecting to setup - no username set");
         setLocation('/first-time-setup');
       } else {
-        console.log("Redirecting to profile - custom username found:", user.username);
+        console.log("Redirecting to profile - username found:", user.username);
         setLocation(`/profile/${user.username}`);
       }
     }
@@ -51,9 +48,8 @@ function Router() {
     return <AuthPage />;
   }
 
-  // Only force first-time setup if using temporary username
-  const isTemporaryUsername = user.username === user.email.split('@')[0];
-  if (isTemporaryUsername && location !== '/first-time-setup') {
+  // Force first-time setup if no username is set
+  if (!user.username && location !== '/first-time-setup') {
     return <FirstTimeSetup />;
   }
 

@@ -19,7 +19,6 @@ async function syncUser(corbadoUser: any) {
     body: JSON.stringify({
       id: corbadoUser.sub,
       email: corbadoUser.email,
-      username: corbadoUser.email.split('@')[0], // Use email prefix as temporary username
     }),
     credentials: 'include',
   });
@@ -68,10 +67,10 @@ export function useUser() {
     }
   }, [corbadoUser, isAuthenticated, syncUserMutation]);
 
-  // Return the database user if available, otherwise convert Corbado user to our format
+  // Return the database user if available, otherwise create a basic user object
   const userData: SelectUser | null = dbUser || (corbadoUser ? {
     id: corbadoUser.sub,
-    username: corbadoUser.email.split('@')[0], // Use email prefix as temporary username
+    username: null,
     email: corbadoUser.email,
     bio: null,
     currentChallenge: null,
