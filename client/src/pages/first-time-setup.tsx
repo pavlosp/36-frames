@@ -26,6 +26,7 @@ export default function FirstTimeSetup() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          userId: user.id,
           username,
           bio,
         }),
@@ -33,7 +34,8 @@ export default function FirstTimeSetup() {
       });
 
       if (!res.ok) {
-        throw new Error(await res.text());
+        const error = await res.json();
+        throw new Error(error.error || "Failed to update profile");
       }
 
       return res.json();
@@ -54,7 +56,7 @@ export default function FirstTimeSetup() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username) {
       toast({

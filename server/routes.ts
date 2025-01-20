@@ -241,10 +241,15 @@ export function registerRoutes(app: Express): Server {
   // Update user profile
   app.put("/api/users/profile", async (req, res) => {
     try {
-      const { username, bio } = req.body;
+      const { username, bio, userId } = req.body;
+      console.log("Updating profile for user:", { username, bio, userId }); // Debug log
+
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
 
       if (!username) {
-        return res.status(400).send("Username is required");
+        return res.status(400).json({ error: "Username is required" });
       }
 
       // Check if username is already taken by another user
@@ -254,8 +259,8 @@ export function registerRoutes(app: Express): Server {
         .where(eq(users.username, username))
         .limit(1);
 
-      if (existingUser && existingUser.id !== req.body.userId) {
-        return res.status(400).send("Username is already taken");
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(400).json({ error: "Username is already taken" });
       }
 
       // Update user profile
@@ -265,13 +270,18 @@ export function registerRoutes(app: Express): Server {
           username,
           bio: bio || null,
         })
-        .where(eq(users.id, req.body.userId))
+        .where(eq(users.id, userId))
         .returning();
 
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      console.log("Updated user profile:", updatedUser); // Debug log
       res.json(updatedUser);
     } catch (error: any) {
       console.error("Error updating user profile:", error);
-      res.status(500).send(error.message);
+      res.status(500).json({ error: error.message || "Internal server error" });
     }
   });
 
