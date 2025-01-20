@@ -20,6 +20,8 @@ export default function FirstTimeSetup() {
     mutationFn: async () => {
       if (!user?.id) throw new Error("Not authenticated");
 
+      console.log('Updating profile with:', { userId: user.id, username, bio }); // Debug log
+
       const res = await fetch('/api/users/profile', {
         method: 'PUT',
         headers: {
@@ -38,16 +40,23 @@ export default function FirstTimeSetup() {
         throw new Error(error.error || "Failed to update profile");
       }
 
-      return res.json();
+      const data = await res.json();
+      console.log('Profile update response:', data); // Debug log
+      return data;
     },
     onSuccess: (data) => {
+      console.log('Profile update successful:', data); // Debug log
       toast({
         title: "Profile updated!",
         description: "Your profile has been set up successfully.",
       });
-      setLocation(`/profile/${data.username}`);
+      // Force a small delay to ensure state updates are processed
+      setTimeout(() => {
+        setLocation(`/profile/${data.username}`);
+      }, 100);
     },
     onError: (error: any) => {
+      console.error('Profile update error:', error); // Debug log
       toast({
         title: "Error",
         description: error.message,
