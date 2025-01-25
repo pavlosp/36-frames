@@ -112,8 +112,7 @@ export function registerRoutes(app: Express): Server {
       with: {
         photos: {
           orderBy: (photos, { asc }) => [
-            // Sort by URL which contains the timestamp prefix
-            asc(photos.url),
+            asc(photos.createdAt), //Corrected sorting by createdAt
           ],
         },
         user: {
@@ -190,9 +189,8 @@ export function registerRoutes(app: Express): Server {
         try {
           if (metadata.exif) {
             const exif = exifReader(metadata.exif);
-            // Handle EXIF data type more safely
             if (typeof exif === 'object' && exif !== null && 'image' in exif) {
-              const exifData = exif as any; // Type assertion for accessing nested properties
+              const exifData = exif as any;
               if (exifData.exif?.DateTimeOriginal) {
                 takenAt = new Date(exifData.exif.DateTimeOriginal);
               }
@@ -215,14 +213,14 @@ export function registerRoutes(app: Express): Server {
           .withMetadata() // Preserve EXIF data
           .toBuffer();
 
-        const photoId = nanoid();
-        const photoName = `${photoId}.jpg`;
-        const photoPath = path.join(uploadsDir, photoName);
+        // Use the original filename which contains the timestamp
+        const originalName = file.originalname;
+        const photoPath = path.join(uploadsDir, originalName);
 
         // Save the file
         await fs.writeFile(photoPath, optimized);
 
-        const url = `/uploads/${photoName}`;
+        const url = `/uploads/${originalName}`;
 
         return db.insert(photos).values({
           albumId: album.id,
