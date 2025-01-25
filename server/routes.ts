@@ -45,14 +45,13 @@ export function registerRoutes(app: Express): Server {
         return res.json(existingUser);
       }
 
-      // Create new user with a temporary username that needs to be changed
-      const tempUsername = `user_${nanoid(8)}`; // Temporary username
+      // Create new user with null username that needs to be set later
       const [newUser] = await db
         .insert(users)
         .values({
           id,
           email,
-          username: tempUsername, // Use temporary username
+          username: null, // Set username to null initially
           bio: null,
         })
         .returning();
