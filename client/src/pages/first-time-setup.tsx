@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { useUser } from "@/hooks/use-user";
 import { Label } from "@/components/ui/label";
+import { useCorbado } from '@corbado/react';
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/;
 
@@ -15,6 +16,7 @@ export default function FirstTimeSetup() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user } = useUser();
+  const { sessionToken } = useCorbado();
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [usernameError, setUsernameError] = useState<string | null>(null);
@@ -39,6 +41,7 @@ export default function FirstTimeSetup() {
   const updateProfile = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error("Not authenticated");
+      if (!sessionToken) throw new Error("Authentication token not found");
 
       if (!validateUsername(username)) {
         throw new Error(usernameError || "Invalid username");
@@ -46,21 +49,11 @@ export default function FirstTimeSetup() {
 
       console.log('Updating profile with:', { userId: user.id, username, bio }); // Debug log
 
-      // Get the current Corbado session token
-      const token = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('cbo_session_token='))
-        ?.split('=')[1];
-
-      if (!token) {
-        throw new Error("Authentication token not found");
-      }
-
       const res = await fetch('/api/users/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${sessionToken}`,
         },
         body: JSON.stringify({
           userId: user.id,
