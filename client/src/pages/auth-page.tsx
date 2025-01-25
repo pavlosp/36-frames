@@ -11,7 +11,12 @@ export default function AuthPage() {
     document.title = "36 Frames: Share your photo stories";
   }, []);
 
-  const onLoggedIn = () => {
+  const onLoggedIn = (session: any) => {
+    // Store the Corbado token
+    if (session?.token) {
+      localStorage.setItem('cbdToken', session.token);
+    }
+
     toast({
       title: "Welcome to 36 Frames!",
       description: "Successfully logged in",

@@ -14,17 +14,23 @@ export function useUser() {
     } : null 
   });
 
+  // Get the token from localStorage
+  const token = localStorage.getItem('cbdToken');
+
   // Query to get user profile from our database
   const { data: dbUser } = useQuery<SelectUser>({
     queryKey: ['/api/users/profile'],
     queryFn: async () => {
-      if (!corbadoUser?.sub) {
-        console.log('No Corbado user ID available');
+      if (!corbadoUser?.sub || !token) {
+        console.log('No Corbado user ID or token available');
         return null;
       }
 
       console.log('Fetching user profile for:', corbadoUser.sub);
-      const response = await fetch(`/api/users/profile?userId=${corbadoUser.sub}`, {
+      const response = await fetch('/api/users/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         credentials: 'include'
       });
 
@@ -36,6 +42,7 @@ export function useUser() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
             },
             body: JSON.stringify({
               id: corbadoUser.sub,
@@ -63,7 +70,7 @@ export function useUser() {
       console.log('Fetched user profile:', user);
       return user;
     },
-    enabled: !!corbadoUser?.sub && isAuthenticated,
+    enabled: !!corbadoUser?.sub && isAuthenticated && !!token,
     staleTime: 30000, // Cache for 30 seconds
     retry: false,
   });
@@ -74,10 +81,17 @@ export function useUser() {
     isAuthenticated 
   });
 
+  const handleLogout = async () => {
+    // Clear the Corbado token
+    localStorage.removeItem('cbdToken');
+    // Call Corbado logout
+    await logout();
+  };
+
   return {
     user: isAuthenticated ? dbUser : null,
     isLoading,
     error: null,
-    logout,
+    logout: handleLogout,
   };
 }
