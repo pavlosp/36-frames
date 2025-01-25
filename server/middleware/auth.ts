@@ -17,22 +17,30 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
   try {
     // Get the Authorization header
     const authHeader = req.headers.authorization;
+    console.log('Auth header present:', !!authHeader);
+
     if (!authHeader?.startsWith('Bearer ')) {
+      console.log('No Bearer token provided');
       return res.status(401).json({ error: 'No token provided' });
     }
 
     // Extract the token
     const token = authHeader.split(' ')[1];
+    console.log('Token extracted from header');
 
     try {
       // Validate the token using Corbado SDK
       const validation = await sdk.sessions().validateToken(token);
-      if (!validation.valid) {
+      console.log('Token validation result:', validation);
+
+      if (!validation.userId) {
+        console.log('Token validation failed: no userId in response');
         throw new Error('Invalid token');
       }
 
       // Add the validated user ID to the request
-      req.userId = validation.userID;
+      req.userId = validation.userId;
+      console.log('User authenticated:', req.userId);
       next();
     } catch (error) {
       console.error('Token validation failed:', error);

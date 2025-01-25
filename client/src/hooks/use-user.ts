@@ -16,6 +16,7 @@ export function useUser() {
 
   // Get the token from localStorage
   const token = localStorage.getItem('cbdToken');
+  console.log('Token from localStorage:', token ? 'Present' : 'Missing');
 
   // Query to get user profile from our database
   const { data: dbUser, error, isLoading: dbLoading } = useQuery<SelectUser>({

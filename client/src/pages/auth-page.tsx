@@ -14,7 +14,10 @@ export default function AuthPage() {
   const onLoggedIn = (session: any) => {
     // Store the Corbado token
     if (session?.token) {
+      console.log('Received Corbado token, storing in localStorage');
       localStorage.setItem('cbdToken', session.token);
+    } else {
+      console.warn('No token received from Corbado session');
     }
 
     toast({
