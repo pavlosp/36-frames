@@ -1,9 +1,17 @@
 import { Request, Response, NextFunction } from "express";
-import type { CorbadoSession } from '@corbado/node-sdk';
+import { SDK, Config } from '@corbado/node-sdk';
 
-if (!process.env.CORBADO_PROJECT_ID) {
-  throw new Error('CORBADO_PROJECT_ID environment variable is required');
+if (!process.env.CORBADO_PROJECT_ID || !process.env.CORBADO_API_SECRET) {
+  throw new Error('CORBADO_PROJECT_ID and CORBADO_API_SECRET environment variables are required');
 }
+
+const config = new Config(
+  process.env.CORBADO_PROJECT_ID,
+  process.env.CORBADO_API_SECRET,
+  'https://api.corbado.com', // Frontend API
+  'https://api.corbado.com'  // Backend API
+);
+const sdk = new SDK(config);
 
 export async function authenticateUser(req: Request, res: Response, next: NextFunction) {
   try {
@@ -17,16 +25,14 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
     const token = authHeader.split(' ')[1];
 
     try {
-      // Parse and verify the token
-      const base64Payload = token.split('.')[1];
-      const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString('utf8'));
-
-      if (!payload.sub) {
-        throw new Error('Invalid token: no subject claim');
+      // Validate the token using Corbado SDK
+      const validation = await sdk.sessions().validateToken(token);
+      if (!validation.valid) {
+        throw new Error('Invalid token');
       }
 
       // Add the validated user ID to the request
-      req.userId = payload.sub;
+      req.userId = validation.userID;
       next();
     } catch (error) {
       console.error('Token validation failed:', error);
