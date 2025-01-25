@@ -48,8 +48,17 @@ export async function getImageTakenDate(file: File): Promise<Date | null> {
           console.log("Successfully parsed date for", file.name, ":", date);
           resolve(date);
         } else {
-          console.warn("No EXIF date found in:", file.name);
-          resolve(null);
+          // If no EXIF date found, try to extract from filename (assuming format YYYYMMDD)
+          const dateMatch = file.name.match(/(\d{4})(\d{2})(\d{2})/);
+          if (dateMatch) {
+            const [_, year, month, day] = dateMatch;
+            const date = new Date(Number(year), Number(month) - 1, Number(day));
+            console.log("Extracted date from filename:", date);
+            resolve(date);
+          } else {
+            console.warn("No date found in EXIF or filename:", file.name);
+            resolve(null);
+          }
         }
       });
     };
@@ -65,7 +74,16 @@ export async function getImageTakenDate(file: File): Promise<Date | null> {
 }
 
 export function formatDateForFilename(date: Date): string {
-  return date.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const pad = (num: number) => num.toString().padStart(2, '0');
+
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+
+  return `${year}${month}${day}_${hours}${minutes}${seconds}`;
 }
 
 export function generateUniquePhotoFilename(originalFilename: string, date: Date | null): string {
