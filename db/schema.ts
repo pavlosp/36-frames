@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // Corbado IDs are strings
-  username: varchar("username", { length: 12 }).unique(), 
+  username: varchar("username", { length: 12 }).unique(), // Removed .notNull()
   email: varchar("email", { length: 255 }).unique().notNull(),
   bio: text("bio"),
   currentChallenge: text("current_challenge"),
@@ -14,7 +14,7 @@ export const users = pgTable("users", {
 
 export const albums = pgTable("albums", {
   id: serial("id").primaryKey(),
-  userId: text("user_id").references(() => users.id).notNull(), // Reference to Corbado user ID
+  userId: text("user_id").references(() => users.id).notNull(),
   title: text("title").notNull(),
   description: text("description"),
   slug: text("slug").unique().notNull(),
@@ -29,7 +29,6 @@ export const photos = pgTable("photos", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Relations
 export const userRelations = relations(users, ({ many }) => ({
   albums: many(albums),
 }));
@@ -49,12 +48,12 @@ export const photoRelations = relations(photos, ({ one }) => ({
   }),
 }));
 
-// Schemas with validation
 export const insertUserSchema = createInsertSchema(users, {
   username: z.string()
     .min(3, "Username must be at least 3 characters")
     .max(12, "Username cannot exceed 12 characters")
-    .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+    .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores")
+    .optional(), 
   email: z.string()
     .email("Invalid email address")
     .max(255, "Email cannot exceed 255 characters"),
@@ -68,7 +67,6 @@ export const selectAlbumSchema = createSelectSchema(albums);
 export const insertPhotoSchema = createInsertSchema(photos);
 export const selectPhotoSchema = createSelectSchema(photos);
 
-// Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Album = typeof albums.$inferSelect;
@@ -76,5 +74,4 @@ export type InsertAlbum = typeof albums.$inferInsert;
 export type Photo = typeof photos.$inferSelect;
 export type InsertPhoto = typeof photos.$inferInsert;
 
-// Export select type
 export type SelectUser = User;
