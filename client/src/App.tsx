@@ -25,13 +25,15 @@ function Router() {
 
   // Handle navigation based on user state
   useEffect(() => {
-    // Only redirect when we have a stable user state
     if (!isLoading && user && location === "/") {
-      if (!user.username) {
-        console.log("No username in database, redirecting to setup");
+      // Check if username is a temporary one (starts with 'user_')
+      const needsSetup = user.username?.startsWith('user_') || false;
+
+      if (needsSetup) {
+        console.log("Temporary username detected, redirecting to setup");
         setLocation("/first-time-setup");
       } else {
-        console.log("Username found in database:", user.username);
+        console.log("Valid username found:", user.username);
         setLocation(`/profile/${user.username}`);
       }
     }
@@ -49,8 +51,8 @@ function Router() {
     return <AuthPage />;
   }
 
-  // Only allow FirstTimeSetup or show NotFound when no username
-  if (!user.username) {
+  // Only allow FirstTimeSetup or show NotFound when using temporary username
+  if (user.username?.startsWith('user_')) {
     return location === "/first-time-setup" ? (
       <FirstTimeSetup />
     ) : (

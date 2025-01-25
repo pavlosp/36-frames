@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // Corbado IDs are strings
-  username: varchar("username", { length: 12 }).unique().notNull(),
+  username: varchar("username", { length: 12 }).unique(), 
   email: varchar("email", { length: 255 }).unique().notNull(),
   bio: text("bio"),
   currentChallenge: text("current_challenge"),
