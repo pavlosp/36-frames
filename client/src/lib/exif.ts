@@ -5,51 +5,62 @@ export async function getImageTakenDate(file: File): Promise<Date | null> {
   return new Promise((resolve) => {
     console.log("Starting EXIF extraction for file:", file.name);
 
-    // Create an Image object to load the file
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
+    // First read the file into an ArrayBuffer
+    const reader = new FileReader();
 
-    img.onload = function() {
-      console.log("Image loaded, extracting EXIF data...");
-      EXIF.getData(img as any, function(this: any) {
-        console.log("Raw EXIF data:", EXIF.getAllTags(this));
+    reader.onload = function(e) {
+      if (!e.target?.result) {
+        console.error("Failed to read file:", file.name);
+        resolve(null);
+        return;
+      }
 
+      // Create a binary string from the file data
+      const binaryString = e.target.result;
+      console.log("File loaded, extracting EXIF data...");
+
+      // Get EXIF data directly from binary data
+      EXIF.getData(file, function(this: any) {
+        const allTags = EXIF.getAllTags(this);
+        console.log("Raw EXIF data for", file.name, ":", allTags);
+
+        // Try different date fields in order of preference
         const dateTimeOriginal = EXIF.getTag(this, "DateTimeOriginal");
         const dateTimeDigitized = EXIF.getTag(this, "DateTimeDigitized");
         const createDate = EXIF.getTag(this, "CreateDate");
+        const modifyDate = EXIF.getTag(this, "ModifyDate");
 
-        console.log("Found date fields:", {
+        console.log("Found date fields for", file.name, ":", {
           dateTimeOriginal,
           dateTimeDigitized,
-          createDate
+          createDate,
+          modifyDate
         });
 
         // Try different date fields in order of preference
-        let dateStr = dateTimeOriginal || dateTimeDigitized || createDate;
+        let dateStr = dateTimeOriginal || dateTimeDigitized || createDate || modifyDate;
 
         if (dateStr) {
           // EXIF dates are in format "YYYY:MM:DD HH:MM:SS"
           // Convert to standard ISO format
           dateStr = dateStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
           const date = new Date(dateStr);
-          console.log("Parsed date:", date);
-          URL.revokeObjectURL(objectUrl);
+          console.log("Successfully parsed date for", file.name, ":", date);
           resolve(date);
         } else {
           console.warn("No EXIF date found in:", file.name);
-          URL.revokeObjectURL(objectUrl);
           resolve(null);
         }
       });
     };
 
-    img.onerror = function() {
-      console.error("Error loading image:", file.name);
-      URL.revokeObjectURL(objectUrl);
+    reader.onerror = function() {
+      console.error("Error reading file:", file.name);
       resolve(null);
     };
 
-    img.src = objectUrl;
+    // Start reading the file as binary string
+    reader.readAsBinaryString(file);
   });
 }
 
