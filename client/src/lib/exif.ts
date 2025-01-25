@@ -1,6 +1,5 @@
 import EXIF from 'exif-js';
 import { nanoid } from "nanoid";
-import { Exif } from "sharp";
 
 export async function getImageTakenDate(file: File): Promise<Date> {
   return new Promise((resolve) => {
@@ -11,12 +10,12 @@ export async function getImageTakenDate(file: File): Promise<Date> {
     console.log("File last modified date:", fileDate.toISOString());
 
     // Get EXIF data
-    EXIF.getData(file as any, function() {
+    EXIF.getData(file as any, function(this: any) {
       // Try different date fields in order of preference
       const dateTimeOriginal = EXIF.getTag(this, "DateTimeOriginal");
       const dateTimeDigitized = EXIF.getTag(this, "DateTimeDigitized");
       const createDate = EXIF.getTag(this, "CreateDate");
-      const modifyDate = EXIF.getTag(this, "createdDate");
+      const modifyDate = EXIF.getTag(this, "ModifyDate");
 
       console.log("EXIF date fields found:", {
         dateTimeOriginal,
@@ -36,11 +35,10 @@ export async function getImageTakenDate(file: File): Promise<Date> {
         console.log("Successfully parsed EXIF date:", exifDate);
         resolve(exifDate);
       } else {
-        console.log("No EXIF date found in image '" + file.name + "'.");
         // If no EXIF date found, use file's last modified date
         console.log(
           "No EXIF date found, using file last modified date:",
-          fileDate,
+          fileDate
         );
         resolve(fileDate);
       }
@@ -49,43 +47,37 @@ export async function getImageTakenDate(file: File): Promise<Date> {
 }
 
 export function formatDateForFilename(date: Date): string {
-  return date
-    .toISOString()
-    .replace(/[-:]/g, "") // Remove dashes and colons
-    .replace(/\.\d{3}Z$/, "") // Remove milliseconds and Z
-    .replace("T", "_"); // Replace T with underscore
+  const pad = (num: number) => String(num).padStart(2, '0');
+
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+
+  return `${year}${month}${day}_${hours}${minutes}${seconds}`;
 }
 
-export function generateUniquePhotoFilename(
-  originalFilename: string,
-  date: Date,
-): string {
+export function generateUniquePhotoFilename(originalFilename: string, date: Date): string {
   const timestamp = formatDateForFilename(date);
   const uniqueId = nanoid(6);
-  const extension = originalFilename.split(".").pop()?.toLowerCase() || "jpg";
+  const extension = originalFilename.split('.').pop()?.toLowerCase() || 'jpg';
   const filename = `${timestamp}-${uniqueId}.${extension}`;
-  console.log(
-    "Generated filename:",
-    filename,
-    "for original:",
-    originalFilename,
-  );
+  console.log("Generated filename:", filename, "for original:", originalFilename);
   return filename;
 }
 
-// New function to compress image and preserve EXIF
-export async function compressImage(
-  file: File,
-  maxWidth: number = 1200,
-): Promise<Blob> {
+// Compress image while preserving quality
+export async function compressImage(file: File, maxWidth: number = 1200): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const canvas = document.createElement("canvas");
+      const canvas = document.createElement('canvas');
       let width = img.width;
       let height = img.height;
 
-      // Calculate new dimensions
+      // Calculate new dimensions while maintaining aspect ratio
       if (width > maxWidth) {
         height = Math.round((height * maxWidth) / width);
         width = maxWidth;
@@ -94,9 +86,9 @@ export async function compressImage(
       canvas.width = width;
       canvas.height = height;
 
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas.getContext('2d');
       if (!ctx) {
-        reject(new Error("Could not get canvas context"));
+        reject(new Error('Could not get canvas context'));
         return;
       }
 
@@ -107,20 +99,18 @@ export async function compressImage(
       canvas.toBlob(
         (blob) => {
           if (!blob) {
-            reject(new Error("Failed to compress image"));
+            reject(new Error('Failed to compress image'));
             return;
           }
-          console.log(
-            `Compressed ${file.name} from ${file.size} to ${blob.size} bytes`,
-          );
+          console.log(`Compressed ${file.name} from ${file.size} to ${blob.size} bytes`);
           resolve(blob);
         },
-        "image/jpeg",
-        0.8,
+        'image/jpeg',
+        0.8
       );
     };
 
-    img.onerror = () => reject(new Error("Failed to load image"));
+    img.onerror = () => reject(new Error('Failed to load image'));
     img.src = URL.createObjectURL(file);
   });
 }

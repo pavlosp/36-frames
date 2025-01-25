@@ -11,65 +11,6 @@ interface UploadZoneProps {
   maxFiles?: number;
 }
 
-async function compressImage(file: File): Promise<File> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const maxWidth = 1200;
-        const maxHeight = 1200;
-        let width = img.width;
-        let height = img.height;
-
-        // Calculate new dimensions maintaining aspect ratio
-        if (width > height) {
-          if (width > maxWidth) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
-          }
-        }
-
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          reject(new Error("Could not get canvas context"));
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0, width, height);
-
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error("Could not create blob"));
-              return;
-            }
-            const compressedFile = new File([blob], file.name, {
-              type: "image/jpeg",
-              lastModified: Date.now(),
-            });
-            resolve(compressedFile);
-          },
-          "image/jpeg",
-          0.8
-        );
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.onerror = (error) => reject(error);
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function UploadZone({
   files,
   onFilesChange,
@@ -93,39 +34,8 @@ export default function UploadZone({
           return;
         }
 
-        // Check file sizes before processing
-        const oversizedFiles = acceptedFiles.filter(
-          file => file.size > 1024 * 1024
-        );
-
-        if (oversizedFiles.length > 0) {
-          toast({
-            title: "Files too large",
-            description: `${oversizedFiles.length} file(s) exceed the 1MB limit. They will be automatically compressed.`,
-            variant: "default"
-          });
-        }
-
-        setIsProcessing(true);
-        setProcessedCount(0);
-        setTotalToProcess(acceptedFiles.length);
-
-        // Compress all images in parallel
-        const compressedFiles = await Promise.all(
-          acceptedFiles.map(async (file, index) => {
-            const compressed = await compressImage(file);
-            setProcessedCount(prev => prev + 1);
-
-            // Check if still too large after compression
-            if (compressed.size > 1024 * 1024) {
-              throw new Error(`File "${file.name}" is still too large after compression`);
-            }
-
-            return compressed;
-          })
-        );
-
-        const newFiles = [...files, ...compressedFiles];
+        // Process files without compression
+        const newFiles = [...files, ...acceptedFiles];
         onFilesChange(newFiles);
       } catch (error: any) {
         console.error("Error processing images:", error);
@@ -136,8 +46,6 @@ export default function UploadZone({
         });
       } finally {
         setIsProcessing(false);
-        setProcessedCount(0);
-        setTotalToProcess(0);
       }
     },
     [files, maxFiles, onFilesChange, toast]
