@@ -1,4 +1,5 @@
 import exifReader from "exif-reader";
+import { nanoid } from "nanoid";
 
 export async function getImageTakenDate(file: File): Promise<Date | null> {
   try {
@@ -37,4 +38,11 @@ export async function getImageTakenDate(file: File): Promise<Date | null> {
 
 export function formatDateForFilename(date: Date): string {
   return date.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+}
+
+export function generateUniquePhotoFilename(originalFilename: string, date: Date | null): string {
+  const timestamp = date ? formatDateForFilename(date) : formatDateForFilename(new Date());
+  const uniqueId = nanoid(6); // Short unique ID
+  const extension = originalFilename.split('.').pop()?.toLowerCase() || 'jpg';
+  return `${timestamp}-${uniqueId}.${extension}`;
 }

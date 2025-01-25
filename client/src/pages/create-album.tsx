@@ -10,7 +10,7 @@ import { ChevronLeft } from "lucide-react";
 import UploadZone from "@/components/upload-zone";
 import type { InsertAlbum } from "@db/schema";
 import { useUser } from "@/hooks/use-user";
-import { getImageTakenDate, formatDateForFilename } from "@/lib/exif";
+import { getImageTakenDate, generateUniquePhotoFilename } from "@/lib/exif";
 
 function CreateAlbum() {
   const [, setLocation] = useLocation();
@@ -27,18 +27,16 @@ function CreateAlbum() {
         throw new Error("You must be logged in to create an album");
       }
 
-      // Process files to get EXIF data and create timestamped filenames
+      // Process files to get EXIF data and create unique timestamped filenames
       const processedFiles = await Promise.all(
         data.photos.map(async (file) => {
           const takenDate = await getImageTakenDate(file);
-          let timestamp = takenDate 
-            ? formatDateForFilename(takenDate)
-            : formatDateForFilename(new Date()); // Use current time if no EXIF
+          const newFilename = generateUniquePhotoFilename(file.name, takenDate);
 
-          // Create a new File object with the timestamped name
+          // Create a new File object with the unique timestamped name
           return new File(
             [file], 
-            `${timestamp}-${file.name}`,
+            newFilename,
             { type: file.type }
           );
         })
