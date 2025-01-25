@@ -26,9 +26,11 @@ export const photos = pgTable("photos", {
   albumId: integer("album_id").references(() => albums.id).notNull(),
   url: text("url").notNull(),
   order: integer("order").notNull(),
+  takenAt: timestamp("taken_at"), // New field for photo date from EXIF
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Relations remain unchanged
 export const userRelations = relations(users, ({ many }) => ({
   albums: many(albums),
 }));
@@ -48,6 +50,12 @@ export const photoRelations = relations(photos, ({ one }) => ({
   }),
 }));
 
+// Update schemas
+export const insertPhotoSchema = createInsertSchema(photos, {
+  takenAt: z.date().optional(),
+});
+
+// Other schemas remain unchanged
 export const insertUserSchema = createInsertSchema(users, {
   username: z.string()
     .min(3, "Username must be at least 3 characters")
@@ -64,7 +72,6 @@ export const insertUserSchema = createInsertSchema(users, {
 export const selectUserSchema = createSelectSchema(users);
 export const insertAlbumSchema = createInsertSchema(albums);
 export const selectAlbumSchema = createSelectSchema(albums);
-export const insertPhotoSchema = createInsertSchema(photos);
 export const selectPhotoSchema = createSelectSchema(photos);
 
 export type User = typeof users.$inferSelect;

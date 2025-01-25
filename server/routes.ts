@@ -9,6 +9,7 @@ import path from "path";
 import fs from "fs/promises";
 import express from "express";
 import { eq } from "drizzle-orm";
+import exifReader from "exif-reader";
 
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -110,7 +111,10 @@ export function registerRoutes(app: Express): Server {
       where: (albums, { eq }) => eq(albums.slug, req.params.slug),
       with: {
         photos: {
-          orderBy: (photos, { asc }) => [asc(photos.order)],
+          orderBy: [
+            { takenAt: 'asc', nulls: 'last' },
+            { order: 'asc' }
+          ],
         },
         user: {
           columns: {
@@ -127,7 +131,7 @@ export function registerRoutes(app: Express): Server {
     res.json({ album });
   });
 
-  // Create new album
+  // Create new album with EXIF support
   app.post("/api/albums", upload.array("photos", 36), async (req, res) => {
     try {
       const files = req.files as Express.Multer.File[];
@@ -136,19 +140,18 @@ export function registerRoutes(app: Express): Server {
       }
 
       const { title, description, userId } = req.body;
-      console.log("Creating album with data:", { title, description, userId }); // Debug log
+      console.log("Creating album with data:", { title, description, userId });
 
       if (!title) {
         return res.status(400).send("Title is required");
       }
 
-      // Validate user ID
       if (!userId) {
-        console.log("Missing userId in request body:", req.body); // Debug log
+        console.log("Missing userId in request body:", req.body);
         return res.status(401).send("User not authenticated");
       }
 
-      // Verify user exists before creating album
+      // Verify user exists
       const [user] = await db
         .select()
         .from(users)
@@ -156,7 +159,7 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (!user) {
-        console.log("User not found in database:", userId); // Debug log
+        console.log("User not found in database:", userId);
         return res.status(404).send("User not found");
       }
 
@@ -171,15 +174,31 @@ export function registerRoutes(app: Express): Server {
         })
         .returning();
 
-      console.log("Created album:", album); // Debug log
+      console.log("Created album:", album);
 
       // Ensure uploads directory exists
       const uploadsDir = path.join(process.cwd(), "uploads");
       await fs.mkdir(uploadsDir, { recursive: true });
 
-      // Process and save photos
+      // Process photos and extract EXIF data
       const photoPromises = files.map(async (file, index) => {
-        const optimized = await sharp(file.buffer)
+        const sharpImage = sharp(file.buffer);
+        const metadata = await sharpImage.metadata();
+
+        let takenAt: Date | null = null;
+
+        try {
+          if (metadata.exif) {
+            const exif = exifReader(metadata.exif);
+            if (exif.exif?.DateTimeOriginal) {
+              takenAt = new Date(exif.exif.DateTimeOriginal);
+            }
+          }
+        } catch (error) {
+          console.warn("Failed to extract EXIF data:", error);
+        }
+
+        const optimized = await sharpImage
           .resize(1200, 1200, {
             fit: "inside",
             withoutEnlargement: true,
@@ -195,23 +214,22 @@ export function registerRoutes(app: Express): Server {
         const photoName = `${photoId}.jpg`;
         const photoPath = path.join(uploadsDir, photoName);
 
-        // Save the file to disk
+        // Save the file
         await fs.writeFile(photoPath, optimized);
 
-        // Create URL using the static file server
         const url = `/uploads/${photoName}`;
 
         return db.insert(photos).values({
           albumId: album.id,
           url,
           order: index,
+          takenAt: takenAt || null,
         });
       });
 
       try {
         await Promise.all(photoPromises);
       } catch (error) {
-        // If photo processing fails, clean up the album
         await db.delete(albums).where(eq(albums.id, album.id));
         throw error;
       }
