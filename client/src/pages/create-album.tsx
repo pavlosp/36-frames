@@ -10,6 +10,7 @@ import { ChevronLeft } from "lucide-react";
 import UploadZone from "@/components/upload-zone";
 import type { InsertAlbum } from "@db/schema";
 import { useUser } from "@/hooks/use-user";
+import { getImageTakenDate, formatDateForFilename } from "@/lib/exif";
 
 export default function CreateAlbum() {
   const [, setLocation] = useLocation();
@@ -26,15 +27,32 @@ export default function CreateAlbum() {
         throw new Error("You must be logged in to create an album");
       }
 
+      // Process files to get EXIF data and create timestamped filenames
+      const processedFiles = await Promise.all(
+        data.photos.map(async (file) => {
+          const takenDate = await getImageTakenDate(file);
+          let timestamp = takenDate 
+            ? formatDateForFilename(takenDate)
+            : formatDateForFilename(new Date()); // Use current time if no EXIF
+
+          // Create a new File object with the timestamped name
+          return new File(
+            [file], 
+            `${timestamp}-${file.name}`,
+            { type: file.type }
+          );
+        })
+      );
+
       const formData = new FormData();
       formData.append("title", data.title);
       formData.append("description", data.description || "");
-      formData.append("userId", user.id); // Use the string ID directly
-      data.photos.forEach((photo) => {
+      formData.append("userId", user.id);
+      processedFiles.forEach((photo) => {
         formData.append("photos", photo);
       });
 
-      console.log("Creating album with user:", user.id); // Debug log
+      console.log("Creating album with user:", user.id);
 
       const res = await fetch("/api/albums", {
         method: "POST",
@@ -103,8 +121,6 @@ export default function CreateAlbum() {
       return;
     }
 
-    console.log('Submitting album creation with user:', user.id); // Debug log
-
     createAlbum.mutate({ 
       title, 
       description, 
@@ -120,7 +136,7 @@ export default function CreateAlbum() {
         description: "Maximum 36 photos allowed",
         variant: "destructive",
       });
-      setFiles(newFiles.slice(0, 36)); // Only keep first 36 files
+      setFiles(newFiles.slice(0, 36));
       return;
     }
     setFiles(newFiles);

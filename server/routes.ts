@@ -112,8 +112,8 @@ export function registerRoutes(app: Express): Server {
       with: {
         photos: {
           orderBy: (photos, { asc }) => [
-            asc(photos.takenAt),
-            asc(photos.order)
+            // Sort by URL which contains the timestamp prefix
+            asc(photos.url),
           ],
         },
         user: {
