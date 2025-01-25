@@ -182,23 +182,6 @@ export function registerRoutes(app: Express): Server {
       // Process photos and extract EXIF data
       const photoPromises = files.map(async (file, index) => {
         const sharpImage = sharp(file.buffer);
-        const metadata = await sharpImage.metadata();
-
-        let takenAt: Date | null = null;
-
-        try {
-          if (metadata.exif) {
-            const exif = exifReader(metadata.exif);
-            if (typeof exif === 'object' && exif !== null && 'image' in exif) {
-              const exifData = exif as any;
-              if (exifData.exif?.DateTimeOriginal) {
-                takenAt = new Date(exifData.exif.DateTimeOriginal);
-              }
-            }
-          }
-        } catch (error) {
-          console.warn("Failed to extract EXIF data:", error);
-        }
 
         const optimized = await sharpImage
           .resize(1200, 1200, {
@@ -210,7 +193,7 @@ export function registerRoutes(app: Express): Server {
             mozjpeg: true,
             chromaSubsampling: '4:2:0'
           })
-          .withMetadata() // Preserve EXIF data
+          .withMetadata() // Preserve any existing metadata
           .toBuffer();
 
         // Use the original filename which contains the timestamp
@@ -226,7 +209,7 @@ export function registerRoutes(app: Express): Server {
           albumId: album.id,
           url,
           order: index,
-          takenAt: takenAt || null,
+          takenAt: null, // We don't need to process EXIF here anymore since frontend handles it
         });
       });
 
