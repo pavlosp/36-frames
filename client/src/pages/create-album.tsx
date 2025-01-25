@@ -10,7 +10,11 @@ import { ChevronLeft } from "lucide-react";
 import UploadZone from "@/components/upload-zone";
 import type { InsertAlbum } from "@db/schema";
 import { useUser } from "@/hooks/use-user";
-import { getImageTakenDate, generateUniquePhotoFilename } from "@/lib/exif";
+import { 
+  getImageTakenDate, 
+  generateUniquePhotoFilename,
+  compressImage 
+} from "@/lib/exif";
 
 function CreateAlbum() {
   const [, setLocation] = useLocation();
@@ -19,6 +23,7 @@ function CreateAlbum() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const createAlbum = useMutation({
     mutationFn: async (data: InsertAlbum & { photos: File[] }) => {
@@ -27,46 +32,65 @@ function CreateAlbum() {
         throw new Error("You must be logged in to create an album");
       }
 
-      // Process files to get EXIF data and create unique timestamped filenames
-      const processedFiles = await Promise.all(
-        data.photos.map(async (file) => {
-          const takenDate = await getImageTakenDate(file);
-          console.log("Taken date for", file.name, ":", takenDate);
+      setIsProcessing(true);
+      console.log("Starting to process", data.photos.length, "photos");
 
-          const newFilename = generateUniquePhotoFilename(file.name, takenDate);
-          console.log("Generated filename:", newFilename);
+      try {
+        // Process files to get EXIF data and compress
+        const processedFiles = await Promise.all(
+          data.photos.map(async (file) => {
+            console.log("Processing file:", file.name);
 
-          // Create a new File object with the unique timestamped name
-          return new File(
-            [file], 
-            newFilename,
-            { type: file.type }
-          );
-        })
-      );
+            // Get photo date from EXIF or file date
+            const takenDate = await getImageTakenDate(file);
+            console.log("Photo date for", file.name, ":", takenDate);
 
-      const formData = new FormData();
-      formData.append("title", data.title);
-      formData.append("description", data.description || "");
-      formData.append("userId", user.id);
-      processedFiles.forEach((photo) => {
-        formData.append("photos", photo);
-      });
+            // Generate unique filename with date
+            const newFilename = generateUniquePhotoFilename(file.name, takenDate);
+            console.log("Generated filename:", newFilename);
 
-      console.log("Creating album with user:", user.id);
+            // Compress image
+            const compressedBlob = await compressImage(file);
+            console.log("Compressed", file.name, "to", compressedBlob.size, "bytes");
 
-      const res = await fetch("/api/albums", {
-        method: "POST",
-        body: formData,
-      });
+            // Create new File with compressed data and new filename
+            return new File(
+              [compressedBlob],
+              newFilename,
+              { type: 'image/jpeg' }
+            );
+          })
+        );
 
-      if (!res.ok) {
-        const error = await res.text();
-        console.error('Album creation failed:', error);
-        throw new Error(error);
+        console.log("All photos processed, preparing to upload");
+
+        const formData = new FormData();
+        formData.append("title", data.title);
+        formData.append("description", data.description || "");
+        formData.append("userId", user.id);
+
+        processedFiles.forEach((photo) => {
+          console.log("Adding to form:", photo.name);
+          formData.append("photos", photo);
+        });
+
+        console.log("Creating album with user:", user.id);
+
+        const res = await fetch("/api/albums", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const error = await res.text();
+          console.error('Album creation failed:', error);
+          throw new Error(error);
+        }
+
+        return res.json();
+      } finally {
+        setIsProcessing(false);
       }
-
-      return res.json();
     },
     onSuccess: (data) => {
       console.log('Album created successfully:', data);
@@ -181,9 +205,13 @@ function CreateAlbum() {
             <Button
               type="submit"
               className="w-full"
-              disabled={createAlbum.isPending}
+              disabled={createAlbum.isPending || isProcessing}
             >
-              {createAlbum.isPending ? "Creating..." : "Create Album"}
+              {isProcessing 
+                ? "Processing photos..." 
+                : createAlbum.isPending 
+                  ? "Creating..." 
+                  : "Create Album"}
             </Button>
           </form>
         </Card>
