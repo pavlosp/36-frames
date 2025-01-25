@@ -19,7 +19,7 @@ const VITE_CORBADO_PROJECT_ID = "pro-6653263483389419887";
 console.log("Corbado Project ID:", VITE_CORBADO_PROJECT_ID);
 
 // Define protected routes that require authentication
-const PROTECTED_ROUTES = ['/create', '/first-time-setup'];
+const PROTECTED_ROUTES = ['/create', '/first-time-setup', '/'];
 
 function Router() {
   const { user, isLoading } = useUser();
@@ -31,7 +31,13 @@ function Router() {
 
     if (!isLoading) {
       // Check if current route needs authentication
-      const needsAuth = PROTECTED_ROUTES.some(route => location.startsWith(route));
+      const needsAuth = PROTECTED_ROUTES.some(route => location === route || location.startsWith(route));
+      const isPublicAlbumRoute = location.startsWith('/album/');
+
+      // Don't redirect if viewing a public album
+      if (isPublicAlbumRoute) {
+        return;
+      }
 
       if (needsAuth && !user) {
         console.log('Protected route accessed without auth, redirecting to auth page');
@@ -70,23 +76,26 @@ function Router() {
     );
   }
 
-  // Allow public access to album viewing
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      {/* Public routes */}
       <Route path="/auth" component={AuthPage} />
       <Route path="/album/:slug" component={ViewAlbum} />
 
-      {/* Protected routes - only accessible when logged in */}
+      {/* Protected routes - require authentication */}
       {user ? (
         <Switch>
+          <Route path="/" component={Home} />
           <Route path="/create" component={CreateAlbum} />
           <Route path="/profile/:username" component={Profile} />
           {!user.username && (
             <Route path="/first-time-setup" component={FirstTimeSetup} />
           )}
         </Switch>
-      ) : null}
+      ) : (
+        // Redirect to auth for protected routes when not authenticated
+        <Route path="/" component={AuthPage} />
+      )}
 
       <Route component={NotFound} />
     </Switch>
