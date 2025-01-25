@@ -9,7 +9,6 @@ import path from "path";
 import fs from "fs/promises";
 import express from "express";
 import { eq, asc, desc } from "drizzle-orm";
-import exifReader from "exif-reader";
 
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -179,7 +178,7 @@ export function registerRoutes(app: Express): Server {
       const uploadsDir = path.join(process.cwd(), "uploads");
       await fs.mkdir(uploadsDir, { recursive: true });
 
-      // Process photos and extract EXIF data
+      // Process photos - now we just use the filename that was generated on the client
       const photoPromises = files.map(async (file, index) => {
         const sharpImage = sharp(file.buffer);
 
@@ -193,23 +192,17 @@ export function registerRoutes(app: Express): Server {
             mozjpeg: true,
             chromaSubsampling: '4:2:0'
           })
-          .withMetadata() // Preserve any existing metadata
           .toBuffer();
 
-        // Use the original filename which contains the timestamp
-        const originalName = file.originalname;
-        const photoPath = path.join(uploadsDir, originalName);
-
-        // Save the file
+        // Use the original filename which should already contain the date and unique ID
+        const photoPath = path.join(uploadsDir, file.originalname);
         await fs.writeFile(photoPath, optimized);
-
-        const url = `/uploads/${originalName}`;
 
         return db.insert(photos).values({
           albumId: album.id,
-          url,
+          url: `/uploads/${file.originalname}`,
           order: index,
-          takenAt: null, // We don't need to process EXIF here anymore since frontend handles it
+          takenAt: null, // This will be handled by the frontend
         });
       });
 

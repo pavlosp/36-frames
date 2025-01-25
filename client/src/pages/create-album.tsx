@@ -31,7 +31,10 @@ function CreateAlbum() {
       const processedFiles = await Promise.all(
         data.photos.map(async (file) => {
           const takenDate = await getImageTakenDate(file);
+          console.log("Taken date for", file.name, ":", takenDate);
+
           const newFilename = generateUniquePhotoFilename(file.name, takenDate);
+          console.log("Generated filename:", newFilename);
 
           // Create a new File object with the unique timestamped name
           return new File(
