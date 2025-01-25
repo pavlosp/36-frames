@@ -12,7 +12,7 @@ import type { InsertAlbum } from "@db/schema";
 import { useUser } from "@/hooks/use-user";
 import { getImageTakenDate, formatDateForFilename } from "@/lib/exif";
 
-export default function CreateAlbum() {
+function CreateAlbum() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user } = useUser();
@@ -190,3 +190,5 @@ export default function CreateAlbum() {
     </div>
   );
 }
+
+export default CreateAlbum;
