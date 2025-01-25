@@ -3,10 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import type { SelectUser } from "@db/schema";
 
 export function useUser() {
-  const { loading: isLoading, isAuthenticated, user: corbadoUser, logout } = useCorbado();
+  const { loading: corbadoLoading, isAuthenticated, user: corbadoUser, logout } = useCorbado();
 
   console.log('useUser hook state:', { 
-    isLoading, 
+    corbadoLoading, 
     isAuthenticated, 
     corbadoUser: corbadoUser ? { 
       sub: corbadoUser.sub, 
@@ -18,7 +18,7 @@ export function useUser() {
   const token = localStorage.getItem('cbdToken');
 
   // Query to get user profile from our database
-  const { data: dbUser, error } = useQuery<SelectUser>({
+  const { data: dbUser, error, isLoading: dbLoading } = useQuery<SelectUser>({
     queryKey: ['/api/users/profile'],
     queryFn: async () => {
       if (!isAuthenticated || !corbadoUser?.sub || !token) {
@@ -72,7 +72,7 @@ export function useUser() {
         return user;
       } catch (error) {
         console.error('Error in user profile fetch/create:', error);
-        return null;
+        throw error; // Throw error instead of returning null to trigger error state
       }
     },
     enabled: isAuthenticated && !!corbadoUser?.sub && !!token,
@@ -82,7 +82,7 @@ export function useUser() {
 
   console.log('useUser hook result:', { 
     user: dbUser, 
-    isLoading, 
+    isLoading: corbadoLoading || (isAuthenticated && dbLoading), 
     isAuthenticated,
     error 
   });
@@ -94,7 +94,7 @@ export function useUser() {
 
   return {
     user: isAuthenticated ? dbUser : null,
-    isLoading: isLoading || (isAuthenticated && !dbUser),
+    isLoading: corbadoLoading || (isAuthenticated && dbLoading),
     error,
     logout: handleLogout,
   };
