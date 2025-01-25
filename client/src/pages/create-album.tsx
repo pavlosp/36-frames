@@ -43,8 +43,17 @@ function CreateAlbum() {
 
         console.log("Creating album with user:", user.id);
 
+        // Get the Corbado session token
+        const token = localStorage.getItem('cbdToken');
+        if (!token) {
+          throw new Error("Authentication token not found");
+        }
+
         const res = await fetch("/api/albums", {
           method: "POST",
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
           body: formData,
         });
 
@@ -54,7 +63,16 @@ function CreateAlbum() {
           throw new Error(error);
         }
 
-        return res.json();
+        const album = await res.json();
+        // Invalidate queries to refresh the albums list
+        queryClient.invalidateQueries({ queryKey: ['/api/albums'] });
+        if (user?.username) {
+          queryClient.invalidateQueries({ 
+            queryKey: [`/api/users/${user.username}`] 
+          });
+        }
+
+        return album;
       } catch (error: any) {
         console.error('Album creation error:', error);
         throw error;
@@ -62,13 +80,6 @@ function CreateAlbum() {
     },
     onSuccess: (data) => {
       console.log('Album created successfully:', data);
-      // Invalidate both the albums list and the user's profile queries
-      queryClient.invalidateQueries({ queryKey: ['/api/albums'] });
-      if (user?.username) {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/users/${user.username}`] 
-        });
-      }
       toast({
         title: "Album created!",
         description: "Your album has been created successfully.",
