@@ -26,13 +26,16 @@ function Router() {
   useEffect(() => {
     console.log('Router effect:', { user, isLoading, location });
 
-    if (!isLoading && user) {
-      // If username is null, redirect to first-time setup
-      if (!user.username && location !== "/first-time-setup") {
+    if (!isLoading) {
+      if (!user) {
+        console.log('No database user found, showing auth page');
+        if (location !== "/auth") {
+          setLocation("/auth");
+        }
+      } else if (!user.username && location !== "/first-time-setup") {
         console.log("Username is null, redirecting to first-time setup");
         setLocation("/first-time-setup");
       } else if (user.username && location === "/") {
-        // Only redirect to profile if we have a valid username
         console.log("Valid username found:", user.username);
         setLocation(`/profile/${user.username}`);
       }
@@ -47,8 +50,9 @@ function Router() {
     );
   }
 
+  // Show auth page if no user data
   if (!user) {
-    console.log('No user, showing auth page');
+    console.log('Rendering auth page, no database user');
     return <AuthPage />;
   }
 
@@ -64,6 +68,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/auth" component={AuthPage} />
       <Route path="/create" component={CreateAlbum} />
       <Route path="/album/:slug" component={ViewAlbum} />
       <Route path="/profile/:username" component={Profile} />

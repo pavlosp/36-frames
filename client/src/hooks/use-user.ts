@@ -18,59 +18,64 @@ export function useUser() {
   const token = localStorage.getItem('cbdToken');
 
   // Query to get user profile from our database
-  const { data: dbUser } = useQuery<SelectUser>({
+  const { data: dbUser, error } = useQuery<SelectUser>({
     queryKey: ['/api/users/profile'],
     queryFn: async () => {
-      if (!corbadoUser?.sub || !token) {
-        console.log('No Corbado user ID or token available');
+      if (!isAuthenticated || !corbadoUser?.sub || !token) {
+        console.log('Not authenticated or missing token/user ID');
         return null;
       }
 
       console.log('Fetching user profile for:', corbadoUser.sub);
-      const response = await fetch('/api/users/profile', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        credentials: 'include'
-      });
+      try {
+        const response = await fetch('/api/users/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          credentials: 'include'
+        });
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.log('User not found, creating new user');
-          // Create new user in our database
-          const createResponse = await fetch('/api/users/create', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              id: corbadoUser.sub,
-              email: corbadoUser.email,
-            }),
-            credentials: 'include',
-          });
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log('User not found, creating new user');
+            // Create new user in our database
+            const createResponse = await fetch('/api/users/create', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                id: corbadoUser.sub,
+                email: corbadoUser.email,
+              }),
+              credentials: 'include',
+            });
 
-          if (!createResponse.ok) {
-            const error = await createResponse.text();
-            console.error('Failed to create user profile:', error);
-            throw new Error('Failed to create user profile');
+            if (!createResponse.ok) {
+              const error = await createResponse.text();
+              console.error('Failed to create user profile:', error);
+              throw new Error('Failed to create user profile');
+            }
+
+            const newUser = await createResponse.json();
+            console.log('Created new user:', newUser);
+            return newUser;
           }
-
-          const newUser = await createResponse.json();
-          console.log('Created new user:', newUser);
-          return newUser;
+          const error = await response.text();
+          console.error('Failed to fetch user profile:', error);
+          throw new Error('Failed to fetch user profile');
         }
-        const error = await response.text();
-        console.error('Failed to fetch user profile:', error);
-        throw new Error('Failed to fetch user profile');
-      }
 
-      const user = await response.json();
-      console.log('Fetched user profile:', user);
-      return user;
+        const user = await response.json();
+        console.log('Fetched user profile:', user);
+        return user;
+      } catch (error) {
+        console.error('Error in user profile fetch/create:', error);
+        return null;
+      }
     },
-    enabled: !!corbadoUser?.sub && isAuthenticated && !!token,
+    enabled: isAuthenticated && !!corbadoUser?.sub && !!token,
     staleTime: 30000, // Cache for 30 seconds
     retry: false,
   });
@@ -78,20 +83,19 @@ export function useUser() {
   console.log('useUser hook result:', { 
     user: dbUser, 
     isLoading, 
-    isAuthenticated 
+    isAuthenticated,
+    error 
   });
 
   const handleLogout = async () => {
-    // Clear the Corbado token
     localStorage.removeItem('cbdToken');
-    // Call Corbado logout
     await logout();
   };
 
   return {
     user: isAuthenticated ? dbUser : null,
-    isLoading,
-    error: null,
+    isLoading: isLoading || (isAuthenticated && !dbUser),
+    error,
     logout: handleLogout,
   };
 }
