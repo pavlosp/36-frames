@@ -11,16 +11,7 @@ export default function AuthPage() {
     document.title = "36 Frames: Share your photo stories";
   }, []);
 
-  const onLoggedIn = (session: any) => {
-    console.log('Corbado session received:', session);
-    // Store the Corbado token - Corbado provides the token in session.shortSession
-    if (session?.shortSession?.token) {
-      console.log('Received Corbado token, storing in localStorage');
-      localStorage.setItem('cbdToken', session.shortSession.token);
-    } else {
-      console.warn('No token received from Corbado session', { session });
-    }
-
+  const onLoggedIn = () => {
     toast({
       title: "Welcome to 36 Frames!",
       description: "Successfully logged in",

@@ -3,26 +3,23 @@ import { useQuery } from '@tanstack/react-query';
 import type { SelectUser } from "@db/schema";
 
 export function useUser() {
-  const { loading: corbadoLoading, isAuthenticated, user: corbadoUser, logout } = useCorbado();
+  const { loading: corbadoLoading, isAuthenticated, user: corbadoUser, sessionToken, logout } = useCorbado();
 
   console.log('useUser hook state:', { 
     corbadoLoading, 
     isAuthenticated, 
+    hasToken: !!sessionToken,
     corbadoUser: corbadoUser ? { 
       sub: corbadoUser.sub, 
       email: corbadoUser.email 
     } : null 
   });
 
-  // Get the token from localStorage
-  const token = localStorage.getItem('cbdToken');
-  console.log('Token from localStorage:', token ? 'Present' : 'Missing');
-
   // Query to get user profile from our database
   const { data: dbUser, error, isLoading: dbLoading } = useQuery<SelectUser>({
     queryKey: ['/api/users/profile'],
     queryFn: async () => {
-      if (!isAuthenticated || !corbadoUser?.sub || !token) {
+      if (!isAuthenticated || !corbadoUser?.sub || !sessionToken) {
         console.log('Not authenticated or missing token/user ID');
         return null;
       }
@@ -31,7 +28,7 @@ export function useUser() {
       try {
         const response = await fetch('/api/users/profile', {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${sessionToken}`,
           },
           credentials: 'include'
         });
@@ -44,7 +41,7 @@ export function useUser() {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
+                'Authorization': `Bearer ${sessionToken}`,
               },
               body: JSON.stringify({
                 id: corbadoUser.sub,
@@ -73,10 +70,10 @@ export function useUser() {
         return user;
       } catch (error) {
         console.error('Error in user profile fetch/create:', error);
-        throw error; // Throw error instead of returning null to trigger error state
+        throw error;
       }
     },
-    enabled: isAuthenticated && !!corbadoUser?.sub && !!token,
+    enabled: isAuthenticated && !!corbadoUser?.sub && !!sessionToken,
     staleTime: 30000, // Cache for 30 seconds
     retry: false,
   });
@@ -88,15 +85,10 @@ export function useUser() {
     error 
   });
 
-  const handleLogout = async () => {
-    localStorage.removeItem('cbdToken');
-    await logout();
-  };
-
   return {
     user: isAuthenticated ? dbUser : null,
     isLoading: corbadoLoading || (isAuthenticated && dbLoading),
     error,
-    logout: handleLogout,
+    logout,
   };
 }

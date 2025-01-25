@@ -4,8 +4,12 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: async ({ queryKey }) => {
-        // Get the Corbado session token from localStorage
-        const token = localStorage.getItem('cbdToken');
+        // Get the Corbado session token from the cookie
+        const token = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('cbo_session_token='))
+          ?.split('=')[1];
+
         console.log('API Request:', {
           url: queryKey[0],
           hasToken: !!token
@@ -20,8 +24,6 @@ export const queryClient = new QueryClient({
 
         if (!res.ok) {
           if (res.status === 401) {
-            // Clear the token if it's invalid
-            localStorage.removeItem('cbdToken');
             throw new Error('Not authenticated');
           }
 
