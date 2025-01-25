@@ -11,6 +11,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@corbado/node-sdk": "^3.0.2",
     "@corbado/react": "^2.18.0",
     "@corbado/types": "^2.11.2",
     "@hookform/resolvers": "^3.9.1",

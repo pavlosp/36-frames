@@ -9,6 +9,7 @@ import path from "path";
 import fs from "fs/promises";
 import express from "express";
 import { eq, asc } from "drizzle-orm";
+import { authenticateUser } from "./middleware/auth";
 
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -23,48 +24,52 @@ export function registerRoutes(app: Express): Server {
   // Serve static files from uploads directory
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-  // Create new user
-  app.post("/api/users/create", async (req, res) => {
+  // Public routes
+  app.get("/api/albums", async (_req, res) => {
+    const allAlbums = await db.query.albums.findMany({
+      orderBy: (albums, { desc }) => [desc(albums.createdAt)],
+      with: {
+        user: {
+          columns: {
+            username: true,
+          },
+        },
+      },
+    });
+    res.json(allAlbums);
+  });
+
+  app.get("/api/albums/:slug", async (req, res) => {
     try {
-      const { id, email } = req.body;
-      console.log("Creating new user:", { id, email }); // Debug log
+      const album = await db.query.albums.findFirst({
+        where: (albums, { eq }) => eq(albums.slug, req.params.slug),
+        with: {
+          photos: {
+            orderBy: (photos, { asc }) => [
+              asc(photos.takenAt),
+              asc(photos.createdAt),
+            ],
+          },
+          user: {
+            columns: {
+              username: true,
+            },
+          },
+        },
+      });
 
-      if (!id || !email) {
-        return res.status(400).json({ error: "ID and email are required" });
+      if (!album) {
+        return res.status(404).send("Album not found");
       }
 
-      // Check if user already exists
-      const [existingUser] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, id))
-        .limit(1);
-
-      if (existingUser) {
-        console.log("User already exists:", existingUser);
-        return res.json(existingUser);
-      }
-
-      // Create new user with null username that needs to be set later
-      const [newUser] = await db
-        .insert(users)
-        .values({
-          id,
-          email,
-          username: null, // Set username to null initially
-          bio: null,
-        })
-        .returning();
-
-      console.log("Created new user:", newUser);
-      res.json(newUser);
-    } catch (error: any) {
-      console.error("Error creating user:", error);
-      res.status(500).json({ error: error.message || "Internal server error" });
+      console.log(`Retrieved album ${album.slug} with ${album.photos.length} photos`);
+      res.json({ album });
+    } catch (error) {
+      console.error("Error fetching album:", error);
+      res.status(500).send("Error fetching album");
     }
   });
 
-  // Get user profile with their albums
   app.get("/api/users/:username", async (req, res) => {
     const [user] = await db
       .select({
@@ -89,55 +94,51 @@ export function registerRoutes(app: Express): Server {
     res.json({ user, albums: userAlbums });
   });
 
-  // Get all albums (public)
-  app.get("/api/albums", async (_req, res) => {
-    const allAlbums = await db.query.albums.findMany({
-      orderBy: (albums, { desc }) => [desc(albums.createdAt)],
-      with: {
-        user: {
-          columns: {
-            username: true,
-          },
-        },
-      },
-    });
-    res.json(allAlbums);
-  });
-
-  // Get single album with photos sorted by EXIF date
-  app.get("/api/albums/:slug", async (req, res) => {
+  // Protected routes
+  app.post("/api/users/create", authenticateUser, async (req, res) => {
     try {
-      const album = await db.query.albums.findFirst({
-        where: (albums, { eq }) => eq(albums.slug, req.params.slug),
-        with: {
-          photos: {
-            orderBy: (photos, { asc }) => [
-              asc(photos.takenAt), // Sort by EXIF date first
-              asc(photos.createdAt), // Then by upload date as fallback
-            ],
-          },
-          user: {
-            columns: {
-              username: true,
-            },
-          },
-        },
-      });
+      const { id, email } = req.body;
+      console.log("Creating new user:", { id, email });
 
-      if (!album) {
-        return res.status(404).send("Album not found");
+      // Verify the authenticated user matches the requested user ID
+      if (id !== req.userId) {
+        return res.status(403).json({ error: "Unauthorized: User ID mismatch" });
       }
 
-      console.log(`Retrieved album ${album.slug} with ${album.photos.length} photos`);
-      res.json({ album });
-    } catch (error) {
-      console.error("Error fetching album:", error);
-      res.status(500).send("Error fetching album");
+      if (!id || !email) {
+        return res.status(400).json({ error: "ID and email are required" });
+      }
+
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, id))
+        .limit(1);
+
+      if (existingUser) {
+        console.log("User already exists:", existingUser);
+        return res.json(existingUser);
+      }
+
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          id,
+          email,
+          username: null,
+          bio: null,
+        })
+        .returning();
+
+      console.log("Created new user:", newUser);
+      res.json(newUser);
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
     }
   });
 
-  // Create new album with EXIF support
-  app.post("/api/albums", upload.array("photos", 36), async (req, res) => {
+  app.post("/api/albums", authenticateUser, upload.array("photos", 36), async (req, res) => {
     try {
       const files = req.files as Express.Multer.File[];
       if (!files || files.length === 0) {
@@ -146,6 +147,11 @@ export function registerRoutes(app: Express): Server {
 
       const { title, description, userId } = req.body;
       console.log("Creating album:", { title, description, userId });
+
+      // Verify the authenticated user matches the requested user ID
+      if (userId !== req.userId) {
+        return res.status(403).json({ error: "Unauthorized: User ID mismatch" });
+      }
 
       if (!title) {
         return res.status(400).send("Title is required");
@@ -156,7 +162,6 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).send("User not authenticated");
       }
 
-      // Verify user exists
       const [user] = await db
         .select()
         .from(users)
@@ -168,7 +173,6 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).send("User not found");
       }
 
-      // Create album
       const [album] = await db
         .insert(albums)
         .values({
@@ -181,13 +185,10 @@ export function registerRoutes(app: Express): Server {
 
       console.log("Created album:", album);
 
-      // Ensure uploads directory exists
       const uploadsDir = path.join(process.cwd(), "uploads");
       await fs.mkdir(uploadsDir, { recursive: true });
 
-      // Process and save photos
       const photoPromises = files.map(async (file, index) => {
-        // Extract date from filename (assumes format: YYYYMMDD_HHMMSS-uniqueid.ext)
         const dateMatch = file.originalname.match(/^(\d{8})_(\d{6})/);
         let takenDate: Date | null = null;
 
@@ -203,7 +204,6 @@ export function registerRoutes(app: Express): Server {
           console.log(`Extracted date from filename ${file.originalname}:`, takenDate);
         }
 
-        // Save file with original name (which includes date and unique ID)
         const photoPath = path.join(uploadsDir, file.originalname);
         await fs.writeFile(photoPath, file.buffer);
         console.log("Saved photo:", file.originalname);
@@ -235,11 +235,15 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Update user profile
-  app.put("/api/users/profile", async (req, res) => {
+  app.put("/api/users/profile", authenticateUser, async (req, res) => {
     try {
       const { username, bio, userId } = req.body;
-      console.log("Updating profile for user:", { username, bio, userId }); // Debug log
+      console.log("Updating profile for user:", { username, bio, userId });
+
+      // Verify the authenticated user matches the requested user ID
+      if (userId !== req.userId) {
+        return res.status(403).json({ error: "Unauthorized: User ID mismatch" });
+      }
 
       if (!userId) {
         return res.status(400).json({ error: "User ID is required" });
@@ -249,7 +253,6 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ error: "Username is required" });
       }
 
-      // Check if username is already taken by another user
       const [existingUser] = await db
         .select()
         .from(users)
@@ -260,7 +263,6 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ error: "Username is already taken" });
       }
 
-      // Update user profile
       const [updatedUser] = await db
         .update(users)
         .set({
@@ -282,20 +284,15 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get user profile
-  app.get("/api/users/profile", async (req, res) => {
+  app.get("/api/users/profile", authenticateUser, async (req, res) => {
     try {
-      const userId = req.query.userId;
+      const userId = req.userId; // Use the authenticated user ID from the middleware
       console.log("Fetching profile for user:", userId);
-
-      if (!userId) {
-        return res.status(400).json({ error: "User ID is required" });
-      }
 
       const [user] = await db
         .select()
         .from(users)
-        .where(eq(users.id, userId as string))
+        .where(eq(users.id, userId))
         .limit(1);
 
       if (!user) {
