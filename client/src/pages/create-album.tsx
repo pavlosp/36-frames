@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
 import UploadZone from "@/components/upload-zone";
 import type { InsertAlbum } from "@db/schema";
@@ -15,6 +15,7 @@ function CreateAlbum() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user } = useUser();
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -61,6 +62,13 @@ function CreateAlbum() {
     },
     onSuccess: (data) => {
       console.log('Album created successfully:', data);
+      // Invalidate both the albums list and the user's profile queries
+      queryClient.invalidateQueries({ queryKey: ['/api/albums'] });
+      if (user?.username) {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/users/${user.username}`] 
+        });
+      }
       toast({
         title: "Album created!",
         description: "Your album has been created successfully.",
@@ -126,7 +134,7 @@ function CreateAlbum() {
       toast({
         title: "Error",
         description: "Maximum 36 photos allowed",
-        variant: "destructive",
+        variant: "destructive"
       });
       setFiles(newFiles.slice(0, 36));
       return;
