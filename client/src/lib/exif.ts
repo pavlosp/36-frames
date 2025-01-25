@@ -30,7 +30,7 @@ export async function getImageTakenDate(file: File): Promise<Date | null> {
         const createDate = EXIF.getTag(this, "CreateDate");
         const modifyDate = EXIF.getTag(this, "ModifyDate");
 
-        console.log("Found date fields for", file.name, ":", {
+        console.log("Found date fields:", {
           dateTimeOriginal,
           dateTimeDigitized,
           createDate,
@@ -45,27 +45,13 @@ export async function getImageTakenDate(file: File): Promise<Date | null> {
           // Convert to standard ISO format
           dateStr = dateStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
           const date = new Date(dateStr);
-          console.log("Successfully parsed date for", file.name, ":", date);
+          console.log("Successfully parsed EXIF date for", file.name, ":", date);
           resolve(date);
         } else {
-          // If no EXIF date found, try to extract from filename (assuming format YYYYMMDD_HHMMSS)
-          const dateMatch = file.name.match(/(\d{4})(\d{2})(\d{2})_?(\d{2})?(\d{2})?(\d{2})?/);
-          if (dateMatch) {
-            const [_, year, month, day, hours = "00", minutes = "00", seconds = "00"] = dateMatch;
-            const date = new Date(
-              Number(year),
-              Number(month) - 1,
-              Number(day),
-              Number(hours),
-              Number(minutes),
-              Number(seconds)
-            );
-            console.log("Extracted date and time from filename:", date);
-            resolve(date);
-          } else {
-            console.warn("No date found in EXIF or filename:", file.name);
-            resolve(null);
-          }
+          // If no EXIF date found, use current date and time
+          const now = new Date();
+          console.log("No EXIF date found for", file.name, ", using current date:", now);
+          resolve(now);
         }
       });
     };
