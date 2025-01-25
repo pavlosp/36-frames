@@ -8,7 +8,7 @@ import sharp from "sharp";
 import path from "path";
 import fs from "fs/promises";
 import express from "express";
-import { eq } from "drizzle-orm";
+import { eq, asc, desc } from "drizzle-orm";
 import exifReader from "exif-reader";
 
 const storage = multer.memoryStorage();
@@ -111,9 +111,9 @@ export function registerRoutes(app: Express): Server {
       where: (albums, { eq }) => eq(albums.slug, req.params.slug),
       with: {
         photos: {
-          orderBy: [
-            { takenAt: 'asc', nulls: 'last' },
-            { order: 'asc' }
+          orderBy: (photos, { asc }) => [
+            asc(photos.takenAt),
+            asc(photos.order)
           ],
         },
         user: {
@@ -190,8 +190,12 @@ export function registerRoutes(app: Express): Server {
         try {
           if (metadata.exif) {
             const exif = exifReader(metadata.exif);
-            if (exif.exif?.DateTimeOriginal) {
-              takenAt = new Date(exif.exif.DateTimeOriginal);
+            // Handle EXIF data type more safely
+            if (typeof exif === 'object' && exif !== null && 'image' in exif) {
+              const exifData = exif as any; // Type assertion for accessing nested properties
+              if (exifData.exif?.DateTimeOriginal) {
+                takenAt = new Date(exifData.exif.DateTimeOriginal);
+              }
             }
           }
         } catch (error) {
