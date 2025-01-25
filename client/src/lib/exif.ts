@@ -3,114 +3,102 @@ import { nanoid } from "nanoid";
 
 export async function getImageTakenDate(file: File): Promise<Date> {
   return new Promise((resolve) => {
-    console.log("Starting EXIF extraction for file:", file.name);
-
-    // First try to get the file's last modified date as a fallback
     const fileDate = new Date(file.lastModified);
-    console.log("File last modified date:", fileDate.toISOString());
+    console.log("Starting EXIF extraction for:", file.name);
 
-    // Get EXIF data
-    EXIF.getData(file as any, function(this: any) {
-      // Try different date fields in order of preference
-      const dateTimeOriginal = EXIF.getTag(this, "DateTimeOriginal");
-      const dateTimeDigitized = EXIF.getTag(this, "DateTimeDigitized");
-      const createDate = EXIF.getTag(this, "CreateDate");
-      const modifyDate = EXIF.getTag(this, "ModifyDate");
+    try {
+      EXIF.getData(file as any, function() {
+        try {
+          const allTags = EXIF.getAllTags(this);
+          console.log("EXIF tags found:", allTags ? "yes" : "no");
 
-      console.log("EXIF date fields found:", {
-        dateTimeOriginal,
-        dateTimeDigitized,
-        createDate,
-        modifyDate,
+          if (allTags) {
+            const dateTimeOriginal = EXIF.getTag(this, "DateTimeOriginal");
+            console.log("DateTimeOriginal:", dateTimeOriginal);
+
+            if (dateTimeOriginal) {
+              // EXIF dates are in format "YYYY:MM:DD HH:MM:SS"
+              const dateStr = dateTimeOriginal.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
+              const exifDate = new Date(dateStr);
+
+              if (!isNaN(exifDate.getTime())) {
+                console.log("Using EXIF date:", exifDate);
+                resolve(exifDate);
+                return;
+              }
+            }
+          }
+
+          console.log("Using file date:", fileDate);
+          resolve(fileDate);
+        } catch (error) {
+          console.error("Error parsing EXIF:", error);
+          resolve(fileDate);
+        }
       });
-
-      // Try to use EXIF date first
-      let dateStr = dateTimeOriginal || dateTimeDigitized || createDate || modifyDate;
-
-      if (dateStr) {
-        // EXIF dates are in format "YYYY:MM:DD HH:MM:SS"
-        // Convert to standard ISO format
-        dateStr = dateStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
-        const exifDate = new Date(dateStr);
-        console.log("Successfully parsed EXIF date:", exifDate);
-        resolve(exifDate);
-      } else {
-        // If no EXIF date found, use file's last modified date
-        console.log(
-          "No EXIF date found, using file last modified date:",
-          fileDate
-        );
-        resolve(fileDate);
-      }
-    });
+    } catch (error) {
+      console.error("Error reading EXIF:", error);
+      resolve(fileDate);
+    }
   });
 }
 
 export function formatDateForFilename(date: Date): string {
   const pad = (num: number) => String(num).padStart(2, '0');
-
-  const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
-  const hours = pad(date.getHours());
-  const minutes = pad(date.getMinutes());
-  const seconds = pad(date.getSeconds());
-
-  return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 }
 
 export function generateUniquePhotoFilename(originalFilename: string, date: Date): string {
   const timestamp = formatDateForFilename(date);
   const uniqueId = nanoid(6);
   const extension = originalFilename.split('.').pop()?.toLowerCase() || 'jpg';
-  const filename = `${timestamp}-${uniqueId}.${extension}`;
-  console.log("Generated filename:", filename, "for original:", originalFilename);
-  return filename;
+  return `${timestamp}-${uniqueId}.${extension}`;
 }
 
-// Compress image while preserving quality
-export async function compressImage(file: File, maxWidth: number = 1200): Promise<Blob> {
+export async function compressImage(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+
     img.onload = () => {
+      // Calculate new dimensions
+      const maxWidth = 1200;
+      const ratio = Math.min(maxWidth / img.width, 1);
+      const width = Math.round(img.width * ratio);
+      const height = Math.round(img.height * ratio);
+
+      // Create canvas
       const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
-
-      // Calculate new dimensions while maintaining aspect ratio
-      if (width > maxWidth) {
-        height = Math.round((height * maxWidth) / width);
-        width = maxWidth;
-      }
-
       canvas.width = width;
       canvas.height = height;
 
+      // Draw image
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        reject(new Error('Could not get canvas context'));
+        reject(new Error('Failed to get canvas context'));
         return;
       }
 
-      // Draw image
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Convert to blob with quality 0.8
+      // Convert to blob
       canvas.toBlob(
         (blob) => {
           if (!blob) {
             reject(new Error('Failed to compress image'));
             return;
           }
-          console.log(`Compressed ${file.name} from ${file.size} to ${blob.size} bytes`);
+          console.log(`Compressed ${file.name}: ${(file.size / 1024).toFixed(1)}KB -> ${(blob.size / 1024).toFixed(1)}KB`);
           resolve(blob);
         },
         'image/jpeg',
-        0.8
+        0.85
       );
     };
 
-    img.onerror = () => reject(new Error('Failed to load image'));
+    img.onerror = () => {
+      reject(new Error('Failed to load image'));
+    };
+
     img.src = URL.createObjectURL(file);
   });
 }
