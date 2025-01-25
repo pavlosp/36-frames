@@ -43,8 +43,12 @@ function CreateAlbum() {
 
         console.log("Creating album with user:", user.id);
 
-        // Get the Corbado session token
-        const token = localStorage.getItem('cbdToken');
+        // Get the current Corbado session token
+        const token = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('cbo_session_token='))
+          ?.split('=')[1];
+
         if (!token) {
           throw new Error("Authentication token not found");
         }

@@ -24,7 +24,7 @@ export function registerRoutes(app: Express): Server {
   // Serve static files from uploads directory
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-  // Public routes
+  // Public routes - can be accessed without authentication
   app.get("/api/albums", async (_req, res) => {
     const allAlbums = await db.query.albums.findMany({
       orderBy: (albums, { desc }) => [desc(albums.createdAt)],
@@ -94,13 +94,37 @@ export function registerRoutes(app: Express): Server {
     res.json({ user, albums: userAlbums });
   });
 
-  // Protected routes
+  // Protected routes - require authentication
+  // GET profile - used by useUser hook
+  app.get("/api/users/profile", authenticateUser, async (req, res) => {
+    try {
+      const userId = req.userId;
+      console.log("Fetching profile for user:", userId);
+
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      console.log("Found user profile:", user);
+      res.json(user);
+    } catch (error: any) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
+    }
+  });
+
+  // Create new user - used during first login
   app.post("/api/users/create", authenticateUser, async (req, res) => {
     try {
       const { id, email } = req.body;
       console.log("Creating new user:", { id, email });
 
-      // Verify the authenticated user matches the requested user ID
       if (id !== req.userId) {
         return res.status(403).json({ error: "Unauthorized: User ID mismatch" });
       }
@@ -138,6 +162,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Create album - requires auth
   app.post("/api/albums", authenticateUser, upload.array("photos", 36), async (req, res) => {
     try {
       const files = req.files as Express.Multer.File[];
@@ -235,6 +260,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Update profile - requires auth
   app.put("/api/users/profile", authenticateUser, async (req, res) => {
     try {
       const { username, bio, userId } = req.body;
@@ -280,29 +306,6 @@ export function registerRoutes(app: Express): Server {
       res.json(updatedUser);
     } catch (error: any) {
       console.error("Error updating user profile:", error);
-      res.status(500).json({ error: error.message || "Internal server error" });
-    }
-  });
-
-  app.get("/api/users/profile", authenticateUser, async (req, res) => {
-    try {
-      const userId = req.userId; // Use the authenticated user ID from the middleware
-      console.log("Fetching profile for user:", userId);
-
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
-
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      console.log("Found user profile:", user);
-      res.json(user);
-    } catch (error: any) {
-      console.error("Error fetching user profile:", error);
       res.status(500).json({ error: error.message || "Internal server error" });
     }
   });

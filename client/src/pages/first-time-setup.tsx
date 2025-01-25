@@ -46,17 +46,27 @@ export default function FirstTimeSetup() {
 
       console.log('Updating profile with:', { userId: user.id, username, bio }); // Debug log
 
+      // Get the current Corbado session token
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('cbo_session_token='))
+        ?.split('=')[1];
+
+      if (!token) {
+        throw new Error("Authentication token not found");
+      }
+
       const res = await fetch('/api/users/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           userId: user.id,
           username,
           bio,
         }),
-        credentials: 'include',
       });
 
       if (!res.ok) {
