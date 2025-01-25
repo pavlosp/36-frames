@@ -18,6 +18,9 @@ import { useEffect } from "react";
 const VITE_CORBADO_PROJECT_ID = "pro-6653263483389419887";
 console.log("Corbado Project ID:", VITE_CORBADO_PROJECT_ID);
 
+// Define protected routes that require authentication
+const PROTECTED_ROUTES = ['/create', '/first-time-setup'];
+
 function Router() {
   const { user, isLoading } = useUser();
   const [location, setLocation] = useLocation();
@@ -27,15 +30,28 @@ function Router() {
     console.log('Router effect:', { user, isLoading, location });
 
     if (!isLoading) {
-      if (!user) {
-        console.log('No database user found, showing auth page');
-        if (location !== "/auth") {
-          setLocation("/auth");
-        }
-      } else if (!user.username && location !== "/first-time-setup") {
+      // Check if current route needs authentication
+      const needsAuth = PROTECTED_ROUTES.some(route => location.startsWith(route));
+
+      if (needsAuth && !user) {
+        console.log('Protected route accessed without auth, redirecting to auth page');
+        setLocation("/auth");
+        return;
+      }
+
+      if (!user && location === "/auth") {
+        // Already on auth page, no redirect needed
+        return;
+      }
+
+      if (user && !user.username && location !== "/first-time-setup") {
         console.log("Username is null, redirecting to first-time setup");
         setLocation("/first-time-setup");
-      } else if (user.username && location === "/") {
+        return;
+      }
+
+      // Redirect to profile only if we're on the root path
+      if (user?.username && location === "/") {
         console.log("Valid username found:", user.username);
         setLocation(`/profile/${user.username}`);
       }
@@ -54,29 +70,24 @@ function Router() {
     );
   }
 
-  // Show auth page if no user data
-  if (!user) {
-    console.log('Rendering auth page, no database user');
-    return <AuthPage />;
-  }
-
-  // Only allow FirstTimeSetup when username is null
-  if (!user.username) {
-    return location === "/first-time-setup" ? (
-      <FirstTimeSetup />
-    ) : (
-      <NotFound />
-    );
-  }
-
+  // Allow public access to album viewing
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/auth" component={AuthPage} />
-      <Route path="/create" component={CreateAlbum} />
       <Route path="/album/:slug" component={ViewAlbum} />
-      <Route path="/profile/:username" component={Profile} />
-      <Route path="/first-time-setup" component={FirstTimeSetup} />
+
+      {/* Protected routes - only accessible when logged in */}
+      {user ? (
+        <Switch>
+          <Route path="/create" component={CreateAlbum} />
+          <Route path="/profile/:username" component={Profile} />
+          {!user.username && (
+            <Route path="/first-time-setup" component={FirstTimeSetup} />
+          )}
+        </Switch>
+      ) : null}
+
       <Route component={NotFound} />
     </Switch>
   );
