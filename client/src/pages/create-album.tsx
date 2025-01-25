@@ -10,11 +10,6 @@ import { ChevronLeft } from "lucide-react";
 import UploadZone from "@/components/upload-zone";
 import type { InsertAlbum } from "@db/schema";
 import { useUser } from "@/hooks/use-user";
-import { 
-  getImageTakenDate, 
-  generateUniquePhotoFilename,
-  compressImage 
-} from "@/lib/exif";
 
 function CreateAlbum() {
   const [, setLocation] = useLocation();
@@ -23,7 +18,6 @@ function CreateAlbum() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
 
   const createAlbum = useMutation({
     mutationFn: async (data: InsertAlbum & { photos: File[] }) => {
@@ -32,44 +26,16 @@ function CreateAlbum() {
         throw new Error("You must be logged in to create an album");
       }
 
-      setIsProcessing(true);
-      console.log("Starting to process", data.photos.length, "photos");
+      console.log("Starting album creation with", data.photos.length, "photos");
 
       try {
-        // Process files to get EXIF data and compress
-        const processedFiles = await Promise.all(
-          data.photos.map(async (file) => {
-            console.log("Processing file:", file.name);
-
-            // Get photo date from EXIF or file date
-            const takenDate = await getImageTakenDate(file);
-            console.log("Photo date for", file.name, ":", takenDate);
-
-            // Generate unique filename with date
-            const newFilename = generateUniquePhotoFilename(file.name, takenDate);
-            console.log("Generated filename:", newFilename);
-
-            // Compress image
-            const compressedBlob = await compressImage(file);
-            console.log("Compressed", file.name, "to", compressedBlob.size, "bytes");
-
-            // Create new File with compressed data and new filename
-            return new File(
-              [compressedBlob],
-              newFilename,
-              { type: 'image/jpeg' }
-            );
-          })
-        );
-
-        console.log("All photos processed, preparing to upload");
-
         const formData = new FormData();
         formData.append("title", data.title);
         formData.append("description", data.description || "");
         formData.append("userId", user.id);
 
-        processedFiles.forEach((photo) => {
+        // Add all processed photos to form data
+        data.photos.forEach((photo) => {
           console.log("Adding to form:", photo.name);
           formData.append("photos", photo);
         });
@@ -88,8 +54,9 @@ function CreateAlbum() {
         }
 
         return res.json();
-      } finally {
-        setIsProcessing(false);
+      } catch (error: any) {
+        console.error('Album creation error:', error);
+        throw error;
       }
     },
     onSuccess: (data) => {
@@ -205,13 +172,9 @@ function CreateAlbum() {
             <Button
               type="submit"
               className="w-full"
-              disabled={createAlbum.isPending || isProcessing}
+              disabled={createAlbum.isPending}
             >
-              {isProcessing 
-                ? "Processing photos..." 
-                : createAlbum.isPending 
-                  ? "Creating..." 
-                  : "Create Album"}
+              {createAlbum.isPending ? "Creating..." : "Create Album"}
             </Button>
           </form>
         </Card>
