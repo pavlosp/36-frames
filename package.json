@@ -55,6 +55,7 @@
     "drizzle-orm": "^0.38.2",
     "drizzle-zod": "^0.6.0",
     "embla-carousel-react": "^8.3.0",
+    "exif-js": "^2.3.0",
     "exif-reader": "^2.0.2",
     "express": "^4.21.2",
     "express-session": "^1.18.1",

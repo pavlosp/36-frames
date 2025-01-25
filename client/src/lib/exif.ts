@@ -1,49 +1,56 @@
-import exifReader from "exif-reader";
+import EXIF from 'exif-js';
 import { nanoid } from "nanoid";
 
 export async function getImageTakenDate(file: File): Promise<Date | null> {
-  try {
-    console.log("Reading EXIF data from file:", file.name);
-    const arrayBuffer = await file.arrayBuffer();
-    const view = new DataView(arrayBuffer);
+  return new Promise((resolve) => {
+    console.log("Starting EXIF extraction for file:", file.name);
 
-    // Check for EXIF magic bytes
-    if (view.getUint16(0, false) !== 0xFFD8) {
-      console.warn('Not a valid JPEG:', file.name);
-      return null;
-    }
+    // Create an Image object to load the file
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
 
-    let offset = 2;
-    while (offset < view.byteLength) {
-      if (view.getUint16(offset, false) === 0xFFE1) {
-        console.log("Found EXIF marker at offset:", offset);
-        const exifLength = view.getUint16(offset + 2, false);
-        const exifData = new Uint8Array(arrayBuffer.slice(offset + 4, offset + 2 + exifLength));
-        const exif = exifReader(Buffer.from(exifData));
+    img.onload = function() {
+      console.log("Image loaded, extracting EXIF data...");
+      EXIF.getData(img as any, function(this: any) {
+        console.log("Raw EXIF data:", EXIF.getAllTags(this));
 
-        if (typeof exif === 'object' && exif !== null && 'exif' in exif) {
-          const exifInfo = exif as any;
-          console.log("Parsed EXIF data:", exifInfo);
-          if (exifInfo.exif?.DateTimeOriginal) {
-            const date = new Date(exifInfo.exif.DateTimeOriginal);
-            console.log("Extracted date:", date);
-            return date;
-          } else {
-            console.warn("No DateTimeOriginal in EXIF data");
-          }
+        const dateTimeOriginal = EXIF.getTag(this, "DateTimeOriginal");
+        const dateTimeDigitized = EXIF.getTag(this, "DateTimeDigitized");
+        const createDate = EXIF.getTag(this, "CreateDate");
+
+        console.log("Found date fields:", {
+          dateTimeOriginal,
+          dateTimeDigitized,
+          createDate
+        });
+
+        // Try different date fields in order of preference
+        let dateStr = dateTimeOriginal || dateTimeDigitized || createDate;
+
+        if (dateStr) {
+          // EXIF dates are in format "YYYY:MM:DD HH:MM:SS"
+          // Convert to standard ISO format
+          dateStr = dateStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
+          const date = new Date(dateStr);
+          console.log("Parsed date:", date);
+          URL.revokeObjectURL(objectUrl);
+          resolve(date);
         } else {
-          console.warn("Invalid EXIF data structure:", exif);
+          console.warn("No EXIF date found in:", file.name);
+          URL.revokeObjectURL(objectUrl);
+          resolve(null);
         }
-        break;
-      }
-      offset += 2 + view.getUint16(offset + 2, false);
-    }
-    console.warn("No EXIF marker found in file");
-    return null;
-  } catch (error) {
-    console.error('Error reading EXIF:', error);
-    return null;
-  }
+      });
+    };
+
+    img.onerror = function() {
+      console.error("Error loading image:", file.name);
+      URL.revokeObjectURL(objectUrl);
+      resolve(null);
+    };
+
+    img.src = objectUrl;
+  });
 }
 
 export function formatDateForFilename(date: Date): string {
