@@ -15,7 +15,6 @@ import { CorbadoProvider } from "@corbado/react";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 
-// Log the project ID for debugging
 const VITE_CORBADO_PROJECT_ID = "pro-6653263483389419887";
 console.log("Corbado Project ID:", VITE_CORBADO_PROJECT_ID);
 
@@ -27,14 +26,13 @@ function Router() {
   useEffect(() => {
     console.log('Router effect:', { user, isLoading, location });
 
-    if (!isLoading && user && location === "/") {
-      // Check if username is a temporary one (starts with 'user_')
-      const needsSetup = user.username?.startsWith('user_') || false;
-
-      if (needsSetup) {
-        console.log("Temporary username detected, redirecting to setup");
+    if (!isLoading && user) {
+      // If username is null, redirect to first-time setup
+      if (!user.username && location !== "/first-time-setup") {
+        console.log("Username is null, redirecting to first-time setup");
         setLocation("/first-time-setup");
-      } else {
+      } else if (user.username && location === "/") {
+        // Only redirect to profile if we have a valid username
         console.log("Valid username found:", user.username);
         setLocation(`/profile/${user.username}`);
       }
@@ -54,8 +52,8 @@ function Router() {
     return <AuthPage />;
   }
 
-  // Only allow FirstTimeSetup or show NotFound when using temporary username
-  if (user.username?.startsWith('user_')) {
+  // Only allow FirstTimeSetup when username is null
+  if (!user.username) {
     return location === "/first-time-setup" ? (
       <FirstTimeSetup />
     ) : (
@@ -69,6 +67,7 @@ function Router() {
       <Route path="/create" component={CreateAlbum} />
       <Route path="/album/:slug" component={ViewAlbum} />
       <Route path="/profile/:username" component={Profile} />
+      <Route path="/first-time-setup" component={FirstTimeSetup} />
       <Route component={NotFound} />
     </Switch>
   );
