@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { ImagePlus, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import EXIF from 'exif-js';
+import exifr from 'exifr';
 
 interface UploadZoneProps {
   files: File[];
@@ -23,66 +23,47 @@ export default function UploadZone({
   const { toast } = useToast();
 
   const processImage = async (file: File): Promise<File> => {
-    // Get photo date from EXIF or file date
-    const takenDate = await getImageTakenDate(file);
-    console.log("Photo date for", file.name, ":", takenDate);
-
-    // Generate unique filename with date
-    const newFilename = generateUniqueFilename(file.name, takenDate);
-    console.log("Generated filename:", newFilename);
-
-    // Compress image
-    const compressedBlob = await compressImage(file);
-    console.log(`Compressed ${file.name}: ${(file.size / 1024).toFixed(1)}KB -> ${(compressedBlob.size / 1024).toFixed(1)}KB`);
-
-    // Create new File with compressed data and new filename
-    return new File(
-      [compressedBlob],
-      newFilename,
-      { type: 'image/jpeg' }
-    );
-  };
-
-  const getImageTakenDate = (file: File): Promise<Date> => {
-    return new Promise((resolve) => {
-      const fileDate = new Date(file.lastModified);
+    try {
+      // Get photo date from EXIF
       console.log("Starting EXIF extraction for:", file.name);
+      const exif = await exifr.parse(file, {
+        pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate'],
+        translateKeys: true,
+        translateValues: true,
+      });
 
-      try {
-        EXIF.getData(file as any, function() {
-          try {
-            const allTags = EXIF.getAllTags(this);
-            console.log("EXIF tags found:", allTags ? "yes" : "no");
+      console.log("EXIF data:", exif);
 
-            if (allTags) {
-              const dateTimeOriginal = EXIF.getTag(this, "DateTimeOriginal");
-              console.log("DateTimeOriginal:", dateTimeOriginal);
+      // Get the date from EXIF or fallback to file date
+      const takenDate = exif?.DateTimeOriginal || 
+                       exif?.CreateDate || 
+                       exif?.ModifyDate || 
+                       new Date(file.lastModified);
 
-              if (dateTimeOriginal) {
-                // EXIF dates are in format "YYYY:MM:DD HH:MM:SS"
-                const dateStr = dateTimeOriginal.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
-                const exifDate = new Date(dateStr);
+      console.log("Photo date for", file.name, ":", takenDate);
 
-                if (!isNaN(exifDate.getTime())) {
-                  console.log("Using EXIF date:", exifDate);
-                  resolve(exifDate);
-                  return;
-                }
-              }
-            }
+      // Generate unique filename with date
+      const newFilename = generateUniqueFilename(file.name, takenDate);
+      console.log("Generated filename:", newFilename);
 
-            console.log("Using file date:", fileDate);
-            resolve(fileDate);
-          } catch (error) {
-            console.error("Error parsing EXIF:", error);
-            resolve(fileDate);
-          }
-        });
-      } catch (error) {
-        console.error("Error reading EXIF:", error);
-        resolve(fileDate);
-      }
-    });
+      // Compress image
+      const compressedBlob = await compressImage(file);
+      console.log(
+        `Compressed ${file.name}: ${(file.size / 1024).toFixed(1)}KB -> ${(
+          compressedBlob.size / 1024
+        ).toFixed(1)}KB`
+      );
+
+      // Create new File with compressed data and new filename
+      return new File([compressedBlob], newFilename, { type: "image/jpeg" });
+    } catch (error) {
+      console.error("Error processing image:", error);
+      // If EXIF extraction fails, fallback to using file date
+      const fallbackDate = new Date(file.lastModified);
+      const newFilename = generateUniqueFilename(file.name, fallbackDate);
+      const compressedBlob = await compressImage(file);
+      return new File([compressedBlob], newFilename, { type: "image/jpeg" });
+    }
   };
 
   const generateUniqueFilename = (originalFilename: string, date: Date): string => {
@@ -202,19 +183,10 @@ export default function UploadZone({
     onDrop,
     onDropRejected,
     accept: {
-      "image/*": [".jpeg", ".jpg", ".png", ".webp"],
+      "image/*": [".jpeg", ".jpg", ".png", ".heic", ".avif"],
     },
     maxFiles: maxFiles - files.length,
     disabled: isProcessing || files.length >= maxFiles,
-    validator: (file) => {
-      if (files.length + 1 > maxFiles) {
-        return {
-          code: "too-many-files",
-          message: `Maximum ${maxFiles} photos allowed`
-        };
-      }
-      return null;
-    }
   });
 
   const handleRemoveFile = (e: React.MouseEvent, index: number) => {
