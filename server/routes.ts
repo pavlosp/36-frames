@@ -23,18 +23,17 @@ export function registerRoutes(app: Express): Server {
   // Serve static files from uploads directory
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-  // Sync Corbado user with our database
-  app.post("/api/users/sync", async (req, res) => {
+  // Create new user
+  app.post("/api/users/create", async (req, res) => {
     try {
       const { id, email } = req.body;
-      console.log("Syncing user:", { id, email }); // Debug log
+      console.log("Creating new user:", { id, email }); // Debug log
 
       if (!id || !email) {
-        console.log("Missing user data:", { id, email }); // Debug log
-        return res.status(400).send("Missing required user data");
+        return res.status(400).json({ error: "ID and email are required" });
       }
 
-      // First try to find existing user
+      // Check if user already exists
       const [existingUser] = await db
         .select()
         .from(users)
@@ -42,38 +41,26 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (existingUser) {
-        console.log("Found existing user:", existingUser); // Debug log
-
-        // Update only if email has changed
-        if (existingUser.email !== email) {
-          const [updatedUser] = await db
-            .update(users)
-            .set({ email })
-            .where(eq(users.id, id))
-            .returning();
-
-          return res.json(updatedUser);
-        }
-
+        console.log("User already exists:", existingUser);
         return res.json(existingUser);
       }
 
-      // Create new user if none exists
+      // Create new user
       const [newUser] = await db
         .insert(users)
         .values({
           id,
           email,
-          username: null, // No default username
+          username: null,
           bio: null,
         })
         .returning();
 
-      console.log("Created new user:", newUser); // Debug log
+      console.log("Created new user:", newUser);
       res.json(newUser);
     } catch (error: any) {
-      console.error("Error syncing user:", error);
-      res.status(500).send(error.message);
+      console.error("Error creating user:", error);
+      res.status(500).json({ error: error.message || "Internal server error" });
     }
   });
 
@@ -278,7 +265,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "User not found" });
       }
 
-      console.log("Updated user profile:", updatedUser); // Debug log
+      console.log("Updated user profile:", updatedUser);
       res.json(updatedUser);
     } catch (error: any) {
       console.error("Error updating user profile:", error);
@@ -290,7 +277,7 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/users/profile", async (req, res) => {
     try {
       const userId = req.query.userId;
-      console.log("Fetching profile for user:", userId); // Debug log
+      console.log("Fetching profile for user:", userId);
 
       if (!userId) {
         return res.status(400).json({ error: "User ID is required" });
@@ -306,7 +293,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "User not found" });
       }
 
-      console.log("Found user profile:", user); // Debug log
+      console.log("Found user profile:", user);
       res.json(user);
     } catch (error: any) {
       console.error("Error fetching user profile:", error);
