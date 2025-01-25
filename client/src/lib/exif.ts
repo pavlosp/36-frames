@@ -48,12 +48,19 @@ export async function getImageTakenDate(file: File): Promise<Date | null> {
           console.log("Successfully parsed date for", file.name, ":", date);
           resolve(date);
         } else {
-          // If no EXIF date found, try to extract from filename (assuming format YYYYMMDD)
-          const dateMatch = file.name.match(/(\d{4})(\d{2})(\d{2})/);
+          // If no EXIF date found, try to extract from filename (assuming format YYYYMMDD_HHMMSS)
+          const dateMatch = file.name.match(/(\d{4})(\d{2})(\d{2})_?(\d{2})?(\d{2})?(\d{2})?/);
           if (dateMatch) {
-            const [_, year, month, day] = dateMatch;
-            const date = new Date(Number(year), Number(month) - 1, Number(day));
-            console.log("Extracted date from filename:", date);
+            const [_, year, month, day, hours = "00", minutes = "00", seconds = "00"] = dateMatch;
+            const date = new Date(
+              Number(year),
+              Number(month) - 1,
+              Number(day),
+              Number(hours),
+              Number(minutes),
+              Number(seconds)
+            );
+            console.log("Extracted date and time from filename:", date);
             resolve(date);
           } else {
             console.warn("No date found in EXIF or filename:", file.name);
