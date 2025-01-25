@@ -231,7 +231,7 @@ export default function UploadZone({
       </Card>
 
       {files.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 [&>*]:h-full [&>*]:aspect-square auto-rows-fr" style={{ gridAutoFlow: 'column' }}>
           {files.map((file, index) => (
             <div key={index} className="relative aspect-square">
               <img
