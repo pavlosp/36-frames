@@ -25,6 +25,8 @@ function Router() {
 
   // Handle navigation based on user state
   useEffect(() => {
+    console.log('Router effect:', { user, isLoading, location });
+
     if (!isLoading && user && location === "/") {
       // Check if username is a temporary one (starts with 'user_')
       const needsSetup = user.username?.startsWith('user_') || false;
@@ -48,6 +50,7 @@ function Router() {
   }
 
   if (!user) {
+    console.log('No user, showing auth page');
     return <AuthPage />;
   }
 
