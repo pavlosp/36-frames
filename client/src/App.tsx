@@ -23,15 +23,15 @@ function Router() {
   const { user, isLoading } = useUser();
   const [location, setLocation] = useLocation();
 
-  // Redirect authenticated users based on profile completion
+  // Handle navigation based on user state
   useEffect(() => {
-    if (user && location === "/" && !isLoading) {
+    // Only redirect when we have a stable user state
+    if (!isLoading && user && location === "/") {
       if (!user.username) {
-        console.log("Redirecting to setup - no username set");
-        console.log(user);
+        console.log("No username in database, redirecting to setup");
         setLocation("/first-time-setup");
       } else {
-        console.log("Redirecting to profile - username found:", user.username);
+        console.log("Username found in database:", user.username);
         setLocation(`/profile/${user.username}`);
       }
     }
@@ -49,14 +49,17 @@ function Router() {
     return <AuthPage />;
   }
 
-  // Force first-time setup if no username is set
-  if (!user.username && location !== "/first-time-setup") {
-    return <FirstTimeSetup />;
+  // Only allow FirstTimeSetup or show NotFound when no username
+  if (!user.username) {
+    return location === "/first-time-setup" ? (
+      <FirstTimeSetup />
+    ) : (
+      <NotFound />
+    );
   }
 
   return (
     <Switch>
-      <Route path="/first-time-setup" component={FirstTimeSetup} />
       <Route path="/" component={Home} />
       <Route path="/create" component={CreateAlbum} />
       <Route path="/album/:slug" component={ViewAlbum} />
