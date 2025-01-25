@@ -10,11 +10,13 @@ import { ChevronLeft } from "lucide-react";
 import UploadZone from "@/components/upload-zone";
 import type { InsertAlbum } from "@db/schema";
 import { useUser } from "@/hooks/use-user";
+import { useCorbado } from '@corbado/react';
 
 function CreateAlbum() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user } = useUser();
+  const { sessionToken } = useCorbado();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -25,6 +27,11 @@ function CreateAlbum() {
       if (!user?.id) {
         console.error('No user ID available:', user);
         throw new Error("You must be logged in to create an album");
+      }
+
+      if (!sessionToken) {
+        console.error('No session token available');
+        throw new Error("Authentication token not found");
       }
 
       console.log("Starting album creation with", data.photos.length, "photos");
@@ -43,20 +50,10 @@ function CreateAlbum() {
 
         console.log("Creating album with user:", user.id);
 
-        // Get the current Corbado session token
-        const token = document.cookie
-          .split('; ')
-          .find(row => row.startsWith('cbo_session_token='))
-          ?.split('=')[1];
-
-        if (!token) {
-          throw new Error("Authentication token not found");
-        }
-
         const res = await fetch("/api/albums", {
           method: "POST",
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${sessionToken}`,
           },
           body: formData,
         });
