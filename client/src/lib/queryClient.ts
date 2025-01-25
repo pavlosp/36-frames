@@ -4,8 +4,12 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: async ({ queryKey }) => {
-        // Get the Corbado session token from the cookie or local storage
-        const token = localStorage.getItem('cbdToken') || '';
+        // Get the Corbado session token from localStorage
+        const token = localStorage.getItem('cbdToken');
+        console.log('API Request:', {
+          url: queryKey[0],
+          hasToken: !!token
+        });
 
         const res = await fetch(queryKey[0] as string, {
           headers: {

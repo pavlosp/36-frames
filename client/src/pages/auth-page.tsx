@@ -12,12 +12,13 @@ export default function AuthPage() {
   }, []);
 
   const onLoggedIn = (session: any) => {
-    // Store the Corbado token
-    if (session?.token) {
+    console.log('Corbado session received:', session);
+    // Store the Corbado token - Corbado provides the token in session.shortSession
+    if (session?.shortSession?.token) {
       console.log('Received Corbado token, storing in localStorage');
-      localStorage.setItem('cbdToken', session.token);
+      localStorage.setItem('cbdToken', session.shortSession.token);
     } else {
-      console.warn('No token received from Corbado session');
+      console.warn('No token received from Corbado session', { session });
     }
 
     toast({
