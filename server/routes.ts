@@ -212,6 +212,7 @@ export function registerRoutes(app: Express): Server {
             mozjpeg: true,
             chromaSubsampling: '4:2:0'
           })
+          .withMetadata() // Preserve EXIF data
           .toBuffer();
 
         const photoId = nanoid();
