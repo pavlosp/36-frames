@@ -24,8 +24,8 @@ export function registerRoutes(app: Express): Server {
   // Serve static files from uploads directory
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-  // Public routes - can be accessed without authentication
-  app.get("/api/albums", async (_req, res) => {
+  // Protected route - requires authentication
+  app.get("/api/albums", authenticateUser, async (_req, res) => {
     const allAlbums = await db.query.albums.findMany({
       orderBy: (albums, { desc }) => [desc(albums.createdAt)],
       with: {
@@ -39,6 +39,7 @@ export function registerRoutes(app: Express): Server {
     res.json(allAlbums);
   });
 
+  // Public route - no authentication required
   app.get("/api/albums/:slug", async (req, res) => {
     try {
       const album = await db.query.albums.findFirst({
@@ -70,7 +71,8 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/users/:username", async (req, res) => {
+  // Protected route - requires authentication
+  app.get("/api/users/:username", authenticateUser, async (req, res) => {
     const [user] = await db
       .select({
         id: users.id,
