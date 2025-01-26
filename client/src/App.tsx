@@ -11,7 +11,7 @@ import CreateAlbum from "@/pages/create-album";
 import ViewAlbum from "@/pages/view-album";
 import Profile from "@/pages/profile";
 import FirstTimeSetup from "@/pages/first-time-setup";
-import { CorbadoProvider } from "@corbado/react";
+import { CorbadoProvider, useCorbado } from "@corbado/react";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 
@@ -24,48 +24,59 @@ const PROTECTED_ROUTES = ['/create', '/first-time-setup', '/'];
 function Router() {
   const { user, isLoading } = useUser();
   const [location, setLocation] = useLocation();
+  const { isAuthenticated, isLoading: corbadoLoading } = useCorbado();
 
-  // Handle navigation based on user state
+  // Handle navigation based on user and Corbado state
   useEffect(() => {
-    console.log('Router effect:', { user, isLoading, location });
+    console.log('Router effect:', { user, isLoading, location, isAuthenticated, corbadoLoading });
 
-    if (!isLoading) {
-      // Check if current route needs authentication
-      const needsAuth = PROTECTED_ROUTES.some(route => location === route || location.startsWith(route));
-      const isPublicAlbumRoute = location.startsWith('/album/');
-
-      // Don't redirect if viewing a public album
-      if (isPublicAlbumRoute) {
-        return;
-      }
-
-      if (needsAuth && !user) {
-        console.log('Protected route accessed without auth, redirecting to auth page');
-        setLocation("/auth");
-        return;
-      }
-
-      if (!user && location === "/auth") {
-        // Already on auth page, no redirect needed
-        return;
-      }
-
-      if (user && !user.username && location !== "/first-time-setup") {
-        console.log("Username is null, redirecting to first-time setup");
-        setLocation("/first-time-setup");
-        return;
-      }
-
-      // Redirect to profile only if we're on the root path
-      if (user?.username && location === "/") {
-        console.log("Valid username found:", user.username);
-        setLocation(`/profile/${user.username}`);
-      }
+    // Wait for both auth states to be determined
+    if (isLoading || corbadoLoading) {
+      return;
     }
-  }, [user, location, isLoading, setLocation]);
+
+    // Check if current route needs authentication
+    const needsAuth = PROTECTED_ROUTES.some(route => location === route || location.startsWith(route));
+    const isPublicAlbumRoute = location.startsWith('/album/');
+
+    // Don't redirect if viewing a public album
+    if (isPublicAlbumRoute) {
+      return;
+    }
+
+    // If authenticated with Corbado but no user profile, go to first-time setup
+    if (isAuthenticated && !user && location !== "/first-time-setup") {
+      console.log("Authenticated but no user profile, redirecting to first-time setup");
+      setLocation("/first-time-setup");
+      return;
+    }
+
+    // If not authenticated and trying to access protected route, redirect to auth
+    if (needsAuth && !isAuthenticated) {
+      console.log('Protected route accessed without auth, redirecting to auth page');
+      setLocation("/auth");
+      return;
+    }
+
+    // If on auth page but already authenticated, redirect to appropriate page
+    if (isAuthenticated && location === "/auth") {
+      if (user?.username) {
+        setLocation(`/profile/${user.username}`);
+      } else {
+        setLocation("/first-time-setup");
+      }
+      return;
+    }
+
+    // Redirect to profile only if we're on the root path and have a username
+    if (user?.username && location === "/") {
+      console.log("Valid username found:", user.username);
+      setLocation(`/profile/${user.username}`);
+    }
+  }, [user, location, isLoading, setLocation, isAuthenticated, corbadoLoading]);
 
   // Only show loading screen when we're waiting for initial auth
-  if (isLoading) {
+  if (isLoading || corbadoLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -83,12 +94,12 @@ function Router() {
       <Route path="/album/:slug" component={ViewAlbum} />
 
       {/* Protected routes - require authentication */}
-      {user ? (
+      {isAuthenticated ? (
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/create" component={CreateAlbum} />
           <Route path="/profile/:username" component={Profile} />
-          {!user.username && (
+          {!user?.username && (
             <Route path="/first-time-setup" component={FirstTimeSetup} />
           )}
         </Switch>
