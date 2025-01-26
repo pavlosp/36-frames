@@ -1,5 +1,5 @@
 import { useCorbado } from '@corbado/react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import type { SelectUser } from "@db/schema";
 
 export function useUser() {
@@ -13,6 +13,33 @@ export function useUser() {
       sub: corbadoUser.sub, 
       email: corbadoUser.email 
     } : null 
+  });
+
+  // Mutation for creating a new user
+  const createUserMutation = useMutation({
+    mutationFn: async () => {
+      if (!corbadoUser?.sub || !sessionToken) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({
+          id: corbadoUser.sub,
+          email: corbadoUser.email,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create user');
+      }
+
+      return response.json();
+    },
   });
 
   // Query to get user profile from our database
@@ -41,30 +68,10 @@ export function useUser() {
           return user;
         }
 
+        // Only try to create a user if we get a 404
         if (response.status === 404) {
-          console.log('User not found, creating new user');
-          // Create new user in our database with sessionToken
-          const createResponse = await fetch('/api/users/create', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${sessionToken}`,
-            },
-            body: JSON.stringify({
-              id: corbadoUser.sub,
-              email: corbadoUser.email,
-            }),
-          });
-
-          if (!createResponse.ok) {
-            const error = await createResponse.text();
-            console.error('Failed to create user profile:', error);
-            throw new Error('Failed to create user profile');
-          }
-
-          const newUser = await createResponse.json();
-          console.log('Created new user:', newUser);
-          return newUser;
+          console.log('User not found, deferring user creation to first-time setup');
+          return null;
         }
 
         // For other errors, throw them
@@ -72,7 +79,7 @@ export function useUser() {
         console.error('Failed to fetch user profile:', error);
         throw new Error('Failed to fetch user profile');
       } catch (error) {
-        console.error('Error in user profile fetch/create:', error);
+        console.error('Error in user profile fetch:', error);
         throw error;
       }
     },
@@ -93,5 +100,6 @@ export function useUser() {
     isLoading: corbadoLoading || (isAuthenticated && dbLoading),
     error,
     logout,
+    createUser: createUserMutation.mutateAsync,
   };
 }

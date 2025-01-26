@@ -15,7 +15,7 @@ const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/;
 export default function FirstTimeSetup() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { user } = useUser();
+  const { user, createUser } = useUser();
   const { sessionToken } = useCorbado();
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -40,14 +40,23 @@ export default function FirstTimeSetup() {
 
   const updateProfile = useMutation({
     mutationFn: async () => {
-      if (!user?.id) throw new Error("Not authenticated");
+      if (!user?.id) {
+        // First create the user if it doesn't exist
+        try {
+          await createUser();
+        } catch (error: any) {
+          console.error('Failed to create user:', error);
+          throw new Error('Failed to create user profile');
+        }
+      }
+
       if (!sessionToken) throw new Error("Authentication token not found");
 
       if (!validateUsername(username)) {
         throw new Error(usernameError || "Invalid username");
       }
 
-      console.log('Updating profile with:', { userId: user.id, username, bio }); // Debug log
+      console.log('Updating profile with:', { userId: user?.id, username, bio }); // Debug log
 
       const res = await fetch('/api/users/profile', {
         method: 'PUT',
@@ -56,7 +65,7 @@ export default function FirstTimeSetup() {
           'Authorization': `Bearer ${sessionToken}`,
         },
         body: JSON.stringify({
-          userId: user.id,
+          userId: user?.id,
           username,
           bio,
         }),
