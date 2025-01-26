@@ -96,11 +96,10 @@ export function registerRoutes(app: Express): Server {
     res.json({ user, albums: userAlbums });
   });
 
-  // Protected routes - require authentication
-  // GET profile - used by useUser hook
+  // Protected route - used by useUser hook
   app.get("/api/users/profile", authenticateUser, async (req, res) => {
     try {
-      const userId = req.userId;
+      const userId = req.userId; // This is the Corbado user ID from auth middleware
       console.log("Fetching profile for user:", userId);
 
       const [user] = await db
@@ -116,7 +115,7 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (!user) {
-        console.log("User not found:", userId);
+        console.log("User not found in database:", userId);
         return res.status(404).json({ error: "User not found" });
       }
 
