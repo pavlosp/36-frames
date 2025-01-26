@@ -102,6 +102,9 @@ export function registerRoutes(app: Express): Server {
       const userId = req.userId; // This is the Corbado user ID from auth middleware
       console.log("Fetching profile for user:", userId);
 
+      // Debug: Log the query we're about to make
+      console.log("Looking up user in database with ID:", userId);
+
       const [user] = await db
         .select({
           id: users.id,
@@ -113,6 +116,8 @@ export function registerRoutes(app: Express): Server {
         .from(users)
         .where(eq(users.id, userId))
         .limit(1);
+
+      console.log("Database query result:", user || "No user found");
 
       if (!user) {
         console.log("User not found in database:", userId);
