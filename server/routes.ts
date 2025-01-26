@@ -128,13 +128,15 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Create new user - used during first login
+  // Protected route - requires authentication
   app.post("/api/users/create", authenticateUser, async (req, res) => {
     try {
       const { id, email } = req.body;
-      console.log("Creating new user:", { id, email });
+      console.log("Received create user request:", { id, email });
 
+      // Verify the authenticated user matches the requested user ID
       if (id !== req.userId) {
+        console.log("User ID mismatch:", { requestId: id, authUserId: req.userId });
         return res.status(403).json({ error: "Unauthorized: User ID mismatch" });
       }
 
@@ -142,6 +144,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ error: "ID and email are required" });
       }
 
+      // Check if user already exists first
       const [existingUser] = await db
         .select()
         .from(users)
@@ -149,10 +152,12 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (existingUser) {
-        console.log("User already exists:", existingUser);
-        return res.json(existingUser);
+        console.log("User already exists, returning existing user:", existingUser);
+        return res.status(200).json(existingUser);
       }
 
+      // Only create new user if one doesn't exist
+      console.log("Creating new user:", { id, email });
       const [newUser] = await db
         .insert(users)
         .values({
@@ -166,7 +171,7 @@ export function registerRoutes(app: Express): Server {
       console.log("Created new user:", newUser);
       res.json(newUser);
     } catch (error: any) {
-      console.error("Error creating user:", error);
+      console.error("Error in user creation:", error);
       res.status(500).json({ error: error.message || "Internal server error" });
     }
   });

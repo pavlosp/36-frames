@@ -29,7 +29,6 @@ export function useUser() {
 
       console.log('Fetching user profile for:', corbadoUser.sub);
       try {
-        // First try to get the existing user profile
         const response = await fetch('/api/users/profile', {
           headers: {
             'Authorization': `Bearer ${sessionToken}`,
