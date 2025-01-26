@@ -43,17 +43,22 @@ export const queryClient = new QueryClient({
       mutationFn: async ({ 
         url, 
         method = 'POST', 
-        body, 
+        body,
+        formData,
         token 
       }: { 
         url: string; 
         method?: string; 
         body?: any;
+        formData?: FormData;
         token?: string;
       }) => {
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
+        const headers: Record<string, string> = {};
+
+        // Only add Content-Type for JSON requests
+        if (!formData) {
+          headers['Content-Type'] = 'application/json';
+        }
 
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
@@ -62,7 +67,7 @@ export const queryClient = new QueryClient({
         const res = await fetch(url, {
           method,
           headers,
-          body: body ? JSON.stringify(body) : undefined,
+          body: formData || (body ? JSON.stringify(body) : undefined),
           credentials: 'include',
         });
 

@@ -50,28 +50,16 @@ function CreateAlbum() {
 
         console.log("Creating album with user:", user.id);
 
-        const res = await fetch("/api/albums", {
-          method: "POST",
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`,
-          },
-          body: formData,
-        });
-
-        if (!res.ok) {
-          const error = await res.text();
-          console.error('Album creation failed:', error);
-          throw new Error(error);
-        }
-
-        const album = await res.json();
-        // Invalidate queries to refresh the albums list
-        queryClient.invalidateQueries({ queryKey: ['/api/albums'] });
-        if (user?.username) {
-          queryClient.invalidateQueries({ 
-            queryKey: [`/api/users/${user.username}`] 
-          });
-        }
+        // Use queryClient mutation instead of direct fetch
+        const album = await queryClient.getMutationCache().build(queryClient, {
+          mutationFn: ({ formData, token }: { formData: FormData; token: string }) => 
+            queryClient.defaultOptions.mutations?.mutationFn?.({
+              url: "/api/albums",
+              method: "POST",
+              formData,
+              token
+            }) ?? Promise.reject("No mutation function"),
+        }).mutateAsync({ formData, token: sessionToken });
 
         return album;
       } catch (error: any) {
@@ -86,6 +74,14 @@ function CreateAlbum() {
         description: "Your album has been created successfully.",
       });
       setLocation(`/album/${data.slug}`);
+
+      // Invalidate queries to refresh the albums list
+      queryClient.invalidateQueries({ queryKey: ['/api/albums'] });
+      if (user?.username) {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/users/${user.username}`] 
+        });
+      }
     },
     onError: (error: any) => {
       console.error('Album creation error:', error);
