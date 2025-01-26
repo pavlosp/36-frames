@@ -18,6 +18,9 @@ export function useUser() {
   // Query to get user profile from our database
   const { data: dbUser, error, isLoading: dbLoading } = useQuery<SelectUser>({
     queryKey: ['/api/users/profile'],
+    meta: {
+      token: sessionToken
+    },
     queryFn: async () => {
       if (!isAuthenticated || !corbadoUser?.sub || !sessionToken) {
         console.log('Not authenticated or missing token/user ID');

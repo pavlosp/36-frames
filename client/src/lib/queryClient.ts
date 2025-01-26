@@ -3,8 +3,16 @@ import { QueryClient } from "@tanstack/react-query";
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: async ({ queryKey }) => {
+      queryFn: async ({ queryKey, meta }) => {
+        const headers: Record<string, string> = {};
+
+        // Add auth token if provided in meta
+        if (meta?.token) {
+          headers['Authorization'] = `Bearer ${meta.token}`;
+        }
+
         const res = await fetch(queryKey[0] as string, {
+          headers,
           credentials: "include",
         });
 
@@ -32,7 +40,6 @@ export const queryClient = new QueryClient({
       },
     },
     mutations: {
-      // Simple mutation defaults, let components handle auth
       mutationFn: async ({ 
         url, 
         method = 'POST', 
