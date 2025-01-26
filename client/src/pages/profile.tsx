@@ -6,15 +6,21 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 import AlbumGrid from "@/components/album-grid";
 import type { User, Album } from "@db/schema";
+import { useCorbado } from '@corbado/react';
 
 export default function Profile() {
   const [, params] = useRoute("/profile/:username");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user: currentUser, logout } = useUser();
+  const { sessionToken } = useCorbado();
 
   const { data, isLoading } = useQuery<{ user: User; albums: Album[] }>({
     queryKey: [`/api/users/${params?.username}`],
+    meta: {
+      token: sessionToken
+    },
+    enabled: !!params?.username && !!sessionToken,
   });
 
   const handleLogout = async () => {
