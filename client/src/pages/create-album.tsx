@@ -50,17 +50,23 @@ function CreateAlbum() {
 
         console.log("Creating album with user:", user.id);
 
-        // Use queryClient mutation instead of direct fetch
-        const album = await queryClient.getMutationCache().build(queryClient, {
-          mutationFn: ({ formData, token }: { formData: FormData; token: string }) => 
-            queryClient.defaultOptions.mutations?.mutationFn?.({
-              url: "/api/albums",
-              method: "POST",
-              formData,
-              token
-            }) ?? Promise.reject("No mutation function"),
-        }).mutateAsync({ formData, token: sessionToken });
+        // Make the API request using the mutation function
+        const res = await fetch("/api/albums", {
+          method: "POST",
+          headers: {
+            'Authorization': `Bearer ${sessionToken}`,
+          },
+          body: formData,
+          credentials: 'include',
+        });
 
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('Album creation failed:', errorText);
+          throw new Error(errorText);
+        }
+
+        const album = await res.json();
         return album;
       } catch (error: any) {
         console.error('Album creation error:', error);
