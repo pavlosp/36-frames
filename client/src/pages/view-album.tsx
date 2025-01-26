@@ -63,14 +63,7 @@ export default function ViewAlbum() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container px-4 py-8">
-        {/* Site Description */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold mb-2">36 Frames</h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Curate your own photo stories in 36 frames. Tell your stories and share beautifully-crafted albums with friends and family in one click.
-          </p>
-        </div>
-
+        {/* Navigation */}
         <div className="flex items-center justify-between mb-8">
           <Button
             variant="ghost"
@@ -85,6 +78,14 @@ export default function ViewAlbum() {
           </Button>
         </div>
 
+        {/* Site Description */}
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold mb-2">36 Frames</h1>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Curate your own photo stories in 36 frames. Tell your stories and share beautifully-crafted albums with friends and family in one click.
+          </p>
+        </div>
+
         {/* User Info Box */}
         <div className="bg-primary/5 rounded-lg p-4 mb-6 border border-primary/10">
           <p className="font-bold mb-1">@{data.album.user.username}</p>
@@ -94,8 +95,10 @@ export default function ViewAlbum() {
         </div>
 
         <div className="mb-8">
-          <h2 className="text-lg font-medium text-muted-foreground mb-2">Album:</h2>
-          <h1 className="text-3xl font-bold mb-2">{data.album.title}</h1>
+          <h1 className="text-3xl font-bold mb-2">
+            <span>Album: </span>
+            {data.album.title}
+          </h1>
           {data.album.description && (
             <p className="text-muted-foreground">{data.album.description}</p>
           )}
