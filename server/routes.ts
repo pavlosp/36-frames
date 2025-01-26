@@ -310,15 +310,9 @@ export function registerRoutes(app: Express): Server {
   // Update profile - requires auth
   app.put("/api/users/profile", authenticateUser, async (req, res) => {
     try {
-      const { username, bio, userId } = req.body;
+      const { username, bio } = req.body;
+      const userId = req.userId; // Use the authenticated user ID from middleware
       console.log("Updating profile for user:", { username, bio, userId });
-
-      // Verify the authenticated user matches the requested user ID
-      if (userId !== req.userId) {
-        return res
-          .status(403)
-          .json({ error: "Unauthorized: User ID mismatch" });
-      }
 
       if (!userId) {
         return res.status(400).json({ error: "User ID is required" });
@@ -328,16 +322,45 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ error: "Username is required" });
       }
 
+      // Check if user exists
       const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      // Check username uniqueness before any user operations
+      const [userWithUsername] = await db
         .select()
         .from(users)
         .where(eq(users.username, username))
         .limit(1);
 
-      if (existingUser && existingUser.id !== userId) {
+      if (userWithUsername && userWithUsername.id !== userId) {
         return res.status(400).json({ error: "Username is already taken" });
       }
 
+      if (!existingUser) {
+        // For first-time setup, we should already have a user record from initial auth
+        // with at least an email. If not, that's an error in our auth flow.
+        console.log("Creating new user profile:", { userId, username, bio });
+        const [newUser] = await db
+          .insert(users)
+          .values({
+            id: userId,
+            username,
+            bio: bio || null,
+            email: req.body.email, // Email should be provided during first-time setup
+            currentChallenge: null,
+          })
+          .returning();
+
+        console.log("Created new user profile:", newUser);
+        return res.json(newUser);
+      }
+
+      // Update existing user
+      console.log("Updating existing user profile:", { userId, username, bio });
       const [updatedUser] = await db
         .update(users)
         .set({
