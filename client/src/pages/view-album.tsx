@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Share2, User as UserIcon } from "lucide-react";
+import { ChevronLeft, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Album, Photo } from "@db/schema";
 import { useEffect } from "react";
@@ -11,7 +11,7 @@ export default function ViewAlbum() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const { data, isLoading } = useQuery<{ album: Album & { photos: Photo[]; user: { username: string } } }>({
+  const { data, isLoading } = useQuery<{ album: Album & { photos: Photo[]; user: { username: string; bio?: string | null } } }>({
     queryKey: [`/api/albums/${params?.slug}`],
   });
 
@@ -78,13 +78,11 @@ export default function ViewAlbum() {
         </div>
 
         {/* User Info Box */}
-        <div className="bg-primary/5 rounded-lg p-4 mb-6 border border-primary/10 flex items-center gap-3">
-          <div className="bg-primary/10 rounded-full p-2">
-            <UserIcon className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <p className="font-medium">@{data.album.user.username}</p>
-          </div>
+        <div className="bg-primary/5 rounded-lg p-4 mb-6 border border-primary/10">
+          <p className="font-bold mb-1">@{data.album.user.username}</p>
+          {data.album.user.bio && (
+            <p className="text-sm text-muted-foreground">{data.album.user.bio}</p>
+          )}
         </div>
 
         <div className="mb-8">
