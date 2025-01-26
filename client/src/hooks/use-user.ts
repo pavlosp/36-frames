@@ -26,17 +26,17 @@ export function useUser() {
 
       console.log('Fetching user profile for:', corbadoUser.sub);
       try {
+        // Use sessionToken from useCorbado
         const response = await fetch('/api/users/profile', {
           headers: {
             'Authorization': `Bearer ${sessionToken}`,
           },
-          credentials: 'include'
         });
 
         if (!response.ok) {
           if (response.status === 404) {
             console.log('User not found, creating new user');
-            // Create new user in our database with explicit Authorization header
+            // Create new user in our database with sessionToken
             const createResponse = await fetch('/api/users/create', {
               method: 'POST',
               headers: {
@@ -47,7 +47,6 @@ export function useUser() {
                 id: corbadoUser.sub,
                 email: corbadoUser.email,
               }),
-              credentials: 'include',
             });
 
             if (!createResponse.ok) {

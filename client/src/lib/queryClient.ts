@@ -4,21 +4,7 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: async ({ queryKey }) => {
-        // Get the Corbado session token from the cookie
-        const token = document.cookie
-          .split('; ')
-          .find(row => row.startsWith('cbo_session_token='))
-          ?.split('=')[1];
-
-        console.log('API Request:', {
-          url: queryKey[0],
-          hasToken: !!token
-        });
-
         const res = await fetch(queryKey[0] as string, {
-          headers: {
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          },
           credentials: "include",
         });
 
@@ -46,25 +32,29 @@ export const queryClient = new QueryClient({
       },
     },
     mutations: {
-      // Add mutation defaults to include auth token
-      mutationFn: async ({ url, method = 'POST', body }: { url: string; method?: string; body?: any }) => {
-        const token = document.cookie
-          .split('; ')
-          .find(row => row.startsWith('cbo_session_token='))
-          ?.split('=')[1];
+      // Simple mutation defaults, let components handle auth
+      mutationFn: async ({ 
+        url, 
+        method = 'POST', 
+        body, 
+        token 
+      }: { 
+        url: string; 
+        method?: string; 
+        body?: any;
+        token?: string;
+      }) => {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
 
-        console.log('API Mutation:', {
-          url,
-          method,
-          hasToken: !!token,
-        });
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
 
         const res = await fetch(url, {
           method,
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-          },
+          headers,
           body: body ? JSON.stringify(body) : undefined,
           credentials: 'include',
         });
