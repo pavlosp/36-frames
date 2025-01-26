@@ -91,6 +91,7 @@ export function registerRoutes(app: Express): Server {
           user: {
             columns: {
               username: true,
+              bio: true, // Add this to include the bio field
             },
           },
         },
