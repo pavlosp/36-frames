@@ -16,7 +16,7 @@ export function useUser() {
   });
 
   // Query to get user profile from our database
-  const { data: dbUser, error, isLoading: dbLoading } = useQuery<SelectUser>({
+  const { data: dbUser, error, isLoading: dbLoading, refetch } = useQuery<SelectUser>({
     queryKey: ['/api/users/profile'],
     meta: {
       token: sessionToken
@@ -29,47 +29,49 @@ export function useUser() {
 
       console.log('Fetching user profile for:', corbadoUser.sub);
       try {
-        // Use sessionToken from useCorbado
+        // First try to get the existing user profile
         const response = await fetch('/api/users/profile', {
           headers: {
             'Authorization': `Bearer ${sessionToken}`,
           },
         });
 
-        if (!response.ok) {
-          if (response.status === 404) {
-            console.log('User not found, creating new user');
-            // Create new user in our database with sessionToken
-            const createResponse = await fetch('/api/users/create', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${sessionToken}`,
-              },
-              body: JSON.stringify({
-                id: corbadoUser.sub,
-                email: corbadoUser.email,
-              }),
-            });
-
-            if (!createResponse.ok) {
-              const error = await createResponse.text();
-              console.error('Failed to create user profile:', error);
-              throw new Error('Failed to create user profile');
-            }
-
-            const newUser = await createResponse.json();
-            console.log('Created new user:', newUser);
-            return newUser;
-          }
-          const error = await response.text();
-          console.error('Failed to fetch user profile:', error);
-          throw new Error('Failed to fetch user profile');
+        if (response.ok) {
+          const user = await response.json();
+          console.log('Fetched existing user profile:', user);
+          return user;
         }
 
-        const user = await response.json();
-        console.log('Fetched user profile:', user);
-        return user;
+        if (response.status === 404) {
+          console.log('User not found, creating new user');
+          // Create new user in our database with sessionToken
+          const createResponse = await fetch('/api/users/create', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${sessionToken}`,
+            },
+            body: JSON.stringify({
+              id: corbadoUser.sub,
+              email: corbadoUser.email,
+            }),
+          });
+
+          if (!createResponse.ok) {
+            const error = await createResponse.text();
+            console.error('Failed to create user profile:', error);
+            throw new Error('Failed to create user profile');
+          }
+
+          const newUser = await createResponse.json();
+          console.log('Created new user:', newUser);
+          return newUser;
+        }
+
+        // For other errors, throw them
+        const error = await response.text();
+        console.error('Failed to fetch user profile:', error);
+        throw new Error('Failed to fetch user profile');
       } catch (error) {
         console.error('Error in user profile fetch/create:', error);
         throw error;

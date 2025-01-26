@@ -104,12 +104,19 @@ export function registerRoutes(app: Express): Server {
       console.log("Fetching profile for user:", userId);
 
       const [user] = await db
-        .select()
+        .select({
+          id: users.id,
+          username: users.username,
+          email: users.email,
+          bio: users.bio,
+          createdAt: users.createdAt,
+        })
         .from(users)
         .where(eq(users.id, userId))
         .limit(1);
 
       if (!user) {
+        console.log("User not found:", userId);
         return res.status(404).json({ error: "User not found" });
       }
 
