@@ -53,17 +53,6 @@ function Router() {
               console.log("Valid username found:", user.username);
               setLocation(`/profile/${user.username}`);
             }
-          } else {
-            // Handle authentication for protected routes
-            const needsAuth = PROTECTED_ROUTES.some(route => 
-              location === route || location.startsWith(route)
-            );
-
-            if (needsAuth && !isAuthenticated && !location.startsWith('/album/')) {
-              console.log('Protected route accessed without auth, redirecting to auth page');
-              setLocation("/auth");
-              return;
-            }
           }
         } catch (error) {
           console.error('Error in router effect:', error);
@@ -95,11 +84,12 @@ function Router() {
     );
   }
 
-  // Show auth page for protected routes when not authenticated
-  if (!isAuthenticated && location !== '/auth') {
+  // Show auth page for unauthenticated users except for public routes
+  if (!isAuthenticated && !location.startsWith('/album/')) {
     return <AuthPage />;
   }
 
+  // Main router for authenticated users and public routes
   return (
     <Switch>
       {/* Public routes */}
