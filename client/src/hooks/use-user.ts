@@ -36,7 +36,7 @@ export function useUser() {
         if (!response.ok) {
           if (response.status === 404) {
             console.log('User not found, creating new user');
-            // Create new user in our database
+            // Create new user in our database with explicit Authorization header
             const createResponse = await fetch('/api/users/create', {
               method: 'POST',
               headers: {
