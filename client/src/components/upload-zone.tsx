@@ -109,7 +109,7 @@ export default function UploadZone({
             resolve(blob);
           },
           'image/jpeg',
-          0.85
+          0.80
         );
       };
 

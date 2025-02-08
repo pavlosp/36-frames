@@ -15,16 +15,16 @@ import { CorbadoProvider, useCorbado } from "@corbado/react";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 
-const VITE_CORBADO_PROJECT_ID = "pro-6653263483389419887";
+const VITE_CORBADO_PROJECT_ID = import.meta.env.VITE_CORBADO_PROJECT_ID;
 console.log("Corbado Project ID:", VITE_CORBADO_PROJECT_ID);
 
 // Define protected routes that require authentication
-const PROTECTED_ROUTES = ['/create', '/first-time-setup', '/'];
+const PROTECTED_ROUTES = ['/create', '/first-time-setup', '/profile', '/'];
 
 function Router() {
   const { user, isLoading } = useUser();
   const [location, setLocation] = useLocation();
-  const { isAuthenticated, isLoading: corbadoLoading } = useCorbado();
+  const { isAuthenticated, loading: corbadoLoading } = useCorbado();
 
   // Handle navigation based on user and Corbado state
   useEffect(() => {
