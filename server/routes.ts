@@ -4,7 +4,6 @@ import multer from "multer";
 import { db } from "@db";
 import { albums, photos, users } from "@db/schema";
 import { nanoid } from "nanoid";
-import sharp from "sharp";
 import path from "path";
 import fs from "fs/promises";
 import express from "express";
