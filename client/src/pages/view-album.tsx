@@ -108,7 +108,7 @@ export default function ViewAlbum() {
           {data.album.photos.map((photo) => (
             <div
               key={photo.id}
-              className="break-inside-avoid-column rounded-lg overflow-hidden bg-muted shadow-sm hover:shadow-lg transition-shadow duration-300"
+              className="break-inside-avoid-column rounded-lg overflow-hidden bg-muted shadow-xs hover:shadow-lg transition-shadow duration-300"
             >
               <img
                 src={photo.url}

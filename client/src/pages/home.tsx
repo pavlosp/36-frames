@@ -34,7 +34,7 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <div className="container px-4 py-8">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold bg-linear-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             36 Frames
           </h1>
           <div className="flex items-center gap-2">
