@@ -8,21 +8,18 @@ const __dirname = dirname(__filename);
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
+import { logger } from "./logger";
 
 const viteLogger = createLogger();
 
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
-
 export async function setupVite(app: Express, server: Server) {
+  const isDev = process.env.NODE_ENV !== "production";
+
+  if (isDev) {
+    // ---------------- DEVELOPMENT MODE ----------------
+    logger.info("Initializing Vite dev middleware...");
+
+
   const vite = await createViteServer({
     ...viteConfig,
     configFile: false,
@@ -30,7 +27,6 @@ export async function setupVite(app: Express, server: Server) {
       ...viteLogger,
       error: (msg, options) => {
         viteLogger.error(msg, options);
-        process.exit(1);
       },
     },
     server: {
@@ -41,7 +37,7 @@ export async function setupVite(app: Express, server: Server) {
   });
 
   app.use(vite.middlewares);
-  app.use("*", async (req, res, next) => {
+  app.use("*name", async (req, res, next) => {
     const url = req.originalUrl;
 
     try {
@@ -54,7 +50,7 @@ export async function setupVite(app: Express, server: Server) {
 
       // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(`src="/src/main.tsx"`, `src="/src/main.tsx?v=${nanoid()}"`)
+      template = template.replace(`src="/src/entry-client.tsx"`, `src="/src/entry-client.tsx?v=${nanoid()}"`)
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
@@ -62,21 +58,56 @@ export async function setupVite(app: Express, server: Server) {
       next(e);
     }
   });
-}
+  } else {
+    // ---------------- PRODUCTION MODE (SSR) ----------------
+    logger.info("Initializing production SSR...");
 
-export function serveStatic(app: Express) {
-  const distPath = path.resolve(__dirname, "public");
+    const distDir = path.resolve(__dirname, "..", "dist");
+    const clientDir = path.join(distDir, "client");
+    const serverDir = path.join(distDir, "server");
 
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+    // Load your SSR bundle, exporting a `render(url)` function
+    let render: (url: string) => Promise<string> | string;
+    try {
+      const serverEntryPath = path.join(serverDir, "entry-server.js");
+      ({ render } = await import(serverEntryPath));
+      logger.info("SSR bundle loaded successfully");
+    } catch (error) {
+      logger.error("Could not load SSR bundle", { error });
+      throw new Error(
+        "Could not load SSR bundle. Make sure you have a valid server build."
+      );
+    }
+
+    // Serve static files (JS, CSS, images) from client build
+    app.use(
+      "/assets",
+      express.static(path.join(clientDir, "assets"), {
+        index: false,
+      })
     );
+
+    // Catch-all handler for SSR
+    app.use("*name", async (req, res, next) => {
+      try {
+        const url = req.originalUrl;
+
+        // Pre-built index.html (contains <!--app-html--> placeholder)
+        const indexFile = path.join(clientDir, "index.html");
+        let template = await fs.promises.readFile(indexFile, "utf-8");
+
+        // Render the app with your SSR function
+        const appHtml = await render(url);
+
+        // Inject the SSR-generated HTML into the template
+        const html = template.replace("<!--app-html-->", appHtml);
+
+        res.status(200).set({ "Content-Type": "text/html" }).end(html);
+      } catch (err) {
+        next(err);
+      }
+    });
   }
 
-  app.use(express.static(distPath));
-
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
-  });
 }
+

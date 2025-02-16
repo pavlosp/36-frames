@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
-import UploadZone from "@/components/upload-zone";
+import NoSsrUploadZone from "@/components/nossr-upload-zone";
 import type { InsertAlbum } from "@db/schema";
 import { useUser } from "@/hooks/use-user";
 import { useCorbado } from '@corbado/react';
@@ -186,7 +186,7 @@ function CreateAlbum() {
                 rows={3}
               />
             </div>
-            <UploadZone
+            <NoSsrUploadZone
               files={files}
               onFilesChange={handleFilesChange}
               maxFiles={36}

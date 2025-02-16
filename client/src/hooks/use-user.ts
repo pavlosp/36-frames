@@ -5,16 +5,6 @@ import type { SelectUser } from "@db/schema";
 export function useUser() {
   const { loading: corbadoLoading, isAuthenticated, user: corbadoUser, sessionToken, logout } = useCorbado();
 
-  console.log('useUser hook state:', { 
-    corbadoLoading, 
-    isAuthenticated, 
-    hasToken: !!sessionToken,
-    corbadoUser: corbadoUser ? { 
-      sub: corbadoUser.sub, 
-      email: corbadoUser.email 
-    } : null 
-  });
-
   // Mutation for creating a new user
   const createUserMutation = useMutation({
     mutationFn: async () => {
@@ -86,13 +76,6 @@ export function useUser() {
     enabled: isAuthenticated && !!corbadoUser?.sub && !!sessionToken,
     staleTime: 30000, // Cache for 30 seconds
     retry: false,
-  });
-
-  console.log('useUser hook result:', { 
-    user: dbUser, 
-    isLoading: corbadoLoading || (isAuthenticated && dbLoading), 
-    isAuthenticated,
-    error 
   });
 
   return {
